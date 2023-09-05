@@ -553,6 +553,34 @@
         "OperationName": "getOpenAPISpec"
       }
     },
+    "TemplateAPItemplateapidomainname3C8AECF5": {
+      "Type": "AWS::ApiGateway::DomainName",
+      "Properties": {
+        "DomainName": "template-api.dummy.domain.name",
+        "EndpointConfiguration": {
+          "Types": [
+            "REGIONAL"
+          ]
+        },
+        "RegionalCertificateArn": {
+          "Ref": "TemplateAPItemplateapidummydomainname1E89D9C4"
+        }
+      }
+    },
+    "TemplateAPItemplateapidomainnameMapMyTestStackTemplateAPIE828004E3FD79114": {
+      "Type": "AWS::ApiGateway::BasePathMapping",
+      "Properties": {
+        "DomainName": {
+          "Ref": "TemplateAPItemplateapidomainname3C8AECF5"
+        },
+        "RestApiId": {
+          "Ref": "TemplateAPICE2A2E42"
+        },
+        "Stage": {
+          "Ref": "TemplateAPIDeploymentStagev19D1EF21E"
+        }
+      }
+    },
     "TemplateAPIApiExecutionRoleE18C505F": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -604,6 +632,42 @@
             "Ref": "TemplateAPIApiExecutionRoleE18C505F"
           }
         ]
+      }
+    },
+    "TemplateAPItemplateapidummydomainname1E89D9C4": {
+      "Type": "AWS::CertificateManager::Certificate",
+      "Properties": {
+        "DomainName": "template-api.dummy.domain.name",
+        "DomainValidationOptions": [
+          {
+            "DomainName": "template-api.dummy.domain.name",
+            "HostedZoneId": "DUMMY"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "MyTestStack/Template API/template-api.dummy.domain.name"
+          }
+        ],
+        "ValidationMethod": "DNS"
+      }
+    },
+    "TemplateAPIcnamerecordE45EA273": {
+      "Type": "AWS::Route53::RecordSet",
+      "Properties": {
+        "Name": "template-api.dummy.domain.name.",
+        "Type": "CNAME",
+        "HostedZoneId": "DUMMY",
+        "ResourceRecords": [
+          {
+            "Fn::GetAtt": [
+              "TemplateAPItemplateapidomainname3C8AECF5",
+              "RegionalDomainName"
+            ]
+          }
+        ],
+        "TTL": "300"
       }
     },
     "TemplateAPIGetStatusServiceRole2115891B": {
@@ -698,7 +762,7 @@
         },
         "Environment": {
           "Variables": {
-            "STATUS_INFO": "{\"deploymentTime\":\"2023-09-05T20:30:50.051Z\"}",
+            "STATUS_INFO": "{\"deploymentTime\":\"2023-09-05T21:20:52.153Z\"}",
             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
           }
         },
@@ -959,6 +1023,10 @@
           ]
         ]
       }
+    },
+    "TemplateAPIApiUrl70B42AE9": {
+      "Description": "The registered URL of the API",
+      "Value": "https://template-api.dummy.domain.name"
     }
   },
   "Parameters": {

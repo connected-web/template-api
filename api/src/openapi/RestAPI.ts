@@ -1,4 +1,4 @@
-import { Duration } from 'aws-cdk-lib'
+import { CfnOutput, Duration } from 'aws-cdk-lib'
 import { Effect, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam'
 import { RequestAuthorizer, LambdaIntegration, IdentitySource, RestApi, Cors, IResource, Resource } from 'aws-cdk-lib/aws-apigateway'
 import { HttpMethod, IFunction, Runtime } from 'aws-cdk-lib/aws-lambda'
@@ -11,6 +11,7 @@ import OpenAPIFunction from './Function'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import path from 'path'
 import { OpenAPIRouteMetadata } from './Routes'
+import fs from 'node:fs'
 
 export interface OpenAPIRestAPIProps {
   Description: string
@@ -64,9 +65,11 @@ export interface Verifier {
  */
 export default class OpenAPIRestAPI<R> extends Construct {
   restApi: RestApi
+  description?: string
   endpoints: Array<OpenAPIEndpoint<OpenAPIFunction>>
   executionRole: Role
   cnameRecord?: CnameRecord
+  vanityDomain?: string
   sharedResources: R
   private readonly routeMap: { [param: string]: IResource }
 
@@ -79,6 +82,13 @@ export default class OpenAPIRestAPI<R> extends Construct {
 
     if (process.env.CREATE_CNAME_RECORD === 'true') {
       this.cnameRecord = this.createVanityUrl(scope, props)
+
+      // Create stack output
+      const cfnOutput = new CfnOutput(this, 'ApiUrl', {
+        value: `https://${String(this.vanityDomain)}`,
+        description: 'The registered URL of the API'
+      })
+      console.log('Registered URL of the API:', cfnOutput.value)
     }
 
     this.routeMap = {
@@ -120,6 +130,7 @@ export default class OpenAPIRestAPI<R> extends Construct {
       identitySources: [IdentitySource.header('Authorization')]
     })
 
+    this.description = props.Description ?? 'No description provided'
     const api = new RestApi(this, id, {
       description: props.Description,
       deployOptions: {
@@ -170,6 +181,7 @@ export default class OpenAPIRestAPI<R> extends Construct {
       recordName: vanityDomain,
       ttl: Duration.minutes(5)
     })
+    this.vanityDomain = vanityDomain
     return cnameRecord
   }
 
@@ -290,5 +302,33 @@ export default class OpenAPIRestAPI<R> extends Construct {
 
   report (): void {
     console.log('OpenAPIRestAPI Routes:', Object.values(this.routeMap).map(route => route.path))
+
+    // Update step summary
+    if (process.env.GITHUB_STEP_SUMMARY !== undefined) {
+      try {
+        const summary = [
+          `# ${this.restApi.restApiName}`,
+          '',
+          `${String(this.description ?? 'No description provided')}`,
+          '',
+          `Registered URL: https://${String(this.vanityDomain) ?? 'no-vanity-url-registered'}`,
+          '',
+          '## Endpoints',
+          '',
+          // Create a table from the endpoints array containing operationId, httpMethod, and path
+          '| Operation ID | HTTP Method | Path |',
+          '| --- | --- | --- |',
+          ...this.endpoints.map(endpoint => `| ${endpoint.value?.operationId ?? 'undefined-operation-id'} | ${endpoint.httpMethod} | ${endpoint.path} |`),
+          ''
+        ]
+
+        console.log('Markdown for Github job summary:\n\n', summary.join('\n'))
+
+        fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n'), { flag: 'a' })
+      } catch (ex) {
+        const error = ex as Error
+        console.error('Unable to produce Github step summary:', error.message)
+      }
+    }
   }
 }
