@@ -63,8 +63,8 @@
     "SchemaAPIDBF31215B6": {
       "Type": "AWS::ApiGateway::RestApi",
       "Properties": {
-        "Description": "Schema API DB - https://github.com/connected-web/template-api",
-        "Name": "Schema API DB"
+        "Description": "Template API - https://github.com/connected-web/template-api",
+        "Name": "Template API"
       }
     },
     "SchemaAPIDBCloudWatchRole6C8FB7F5": {
@@ -122,7 +122,7 @@
         "RestApiId": {
           "Ref": "SchemaAPIDBF31215B6"
         },
-        "Description": "Schema API DB - https://github.com/connected-web/template-api"
+        "Description": "Template API - https://github.com/connected-web/template-api"
       },
       "DependsOn": [
         "BasicObjectModel211727F7",

@@ -108,8 +108,8 @@ describe('Open API Spec', () => {
     it('should contain an info block with title and description', async () => {
       const { version, ...testableProps } = openapiDoc.info
       expect(testableProps).toEqual({
-        title: 'Schema API DB',
-        description: 'Schema API DB - https://github.com/connected-web/template-api'
+        title: 'Template API',
+        description: 'Template API - https://github.com/connected-web/template-api'
       })
     })
 

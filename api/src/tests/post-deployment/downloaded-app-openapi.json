@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.1",
   "info": {
-    "title": "Schema API DB",
-    "description": "Schema API DB - https://github.com/connected-web/template-api",
+    "title": "Template API",
+    "description": "Template API - https://github.com/connected-web/template-api",
     "version": "2023-08-27T23:42:53Z"
   },
   "servers": [
