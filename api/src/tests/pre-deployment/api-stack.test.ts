@@ -6,6 +6,9 @@ import { ApiStack } from '../../ApiStack'
 
 import fs from 'node:fs'
 
+// Avoid writing to step summary during these tests
+process.env.GITHUB_STEP_SUMMARY = undefined
+
 const getTemplate = (): Template => {
   const app = new cdk.App()
   const stack = new ApiStack(app, 'MyTestStack', {
