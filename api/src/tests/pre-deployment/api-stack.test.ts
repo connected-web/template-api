@@ -6,6 +6,9 @@ import { ApiStack } from '../../ApiStack'
 
 import fs from 'node:fs'
 
+// Avoid writing to step summary during these tests
+process.env.GITHUB_STEP_SUMMARY = undefined
+
 const getTemplate = (): Template => {
   const app = new cdk.App()
   const stack = new ApiStack(app, 'MyTestStack', {
@@ -35,8 +38,8 @@ describe('REST API', () => {
 
   it('Creates an AWS ApiGateway RestApi with the correct title and description', () => {
     template.hasResourceProperties('AWS::ApiGateway::RestApi', {
-      Description: 'Schema API DB - https://github.com/connected-web/template-api',
-      Name: 'Schema API DB'
+      Description: 'Template API - https://github.com/connected-web/template-api',
+      Name: 'Template API'
     })
   })
 

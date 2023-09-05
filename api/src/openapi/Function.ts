@@ -1,4 +1,3 @@
-import path from 'node:path'
 import { Duration } from 'aws-cdk-lib'
 import { IModel, MethodOptions, MethodResponse } from 'aws-cdk-lib/aws-apigateway'
 import { Function, Runtime } from 'aws-cdk-lib/aws-lambda'
@@ -68,7 +67,7 @@ export default class OpenAPIFunction {
       timeout: Duration.seconds(25),
       runtime: Runtime.NODEJS_18_X,
       handler: 'handler',
-      entry: path.join(__dirname, '../../', routeEntryPoint),
+      entry: routeEntryPoint,
       bundling: {
         minify: true,
         externalModules: ['aws-sdk']

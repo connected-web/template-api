@@ -6,6 +6,7 @@
   "scripts": {
     "lint": "lerna run lint",
     "test": "lerna run test",
+    "post-deployment": "lerna run post-deployment",
     "test:post-deployment": "lerna run test:post-deployment",
     "typegen:for-post-deployment": "lerna run typegen:for-post-deployment"
   },
