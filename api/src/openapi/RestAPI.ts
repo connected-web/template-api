@@ -52,7 +52,7 @@ export interface Verifier {
  * 
  *  const api = new OpenAPIRestAPI(this, 'ExampleAPI', {
  *    Description: 'Example API - created via AWS CDK',
- *    SubDomain: 'example-api',
+ *    SubDomain: 'my-api',
  *    HostedZoneDomain: 'example.com',
  *    Verifiers: [{
  *      name: 'ExampleCognitoUserPool',

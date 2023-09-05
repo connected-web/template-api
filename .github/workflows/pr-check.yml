@@ -53,10 +53,10 @@ jobs:
       # CDK API Project
       - name: Install npm dependencies
         run: npm install
-        working-directory: ./example-api
+        working-directory: ./api
 
       - name: Run post-deployment tests
-        working-directory: ./example-api
+        working-directory: ./api
         run: npm run test:post-deployment
         env:
           POST_DEPLOYMENT_SERVER_DOMAIN: ${{ vars.POST_DEPLOYMENT_SERVER_DOMAIN }}
