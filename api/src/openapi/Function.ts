@@ -5,6 +5,12 @@ import { Function, Runtime } from 'aws-cdk-lib/aws-lambda'
 import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 
+/**
+ * Because naming AWS resources consistently is important.
+ *
+ * @param text  the string to capitalize
+ * @returns the capitalized string
+ */
 function uppercaseFirstLetter (text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
@@ -45,6 +51,16 @@ export default class OpenAPIFunction {
     return this._lambda
   }
 
+  /**
+   * Create a NodeJS Lambda function for this operationId.
+   *
+   * @param scope Construct scope for this construct
+   * @param routeEntryPoint the path to the entry point for this Lambda function
+   *
+   * Note: side effect - also sets this._lambda to the created Lambda construct
+   *
+   * @returns NodejsFunction  the created Lambda construct
+   */
   createNodeJSLambda (scope: Construct, routeEntryPoint: string, additionalProps?: NodejsFunctionProps): NodejsFunction {
     const { operationId: operationName } = this
     const defaultProps = {

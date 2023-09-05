@@ -1,7 +1,7 @@
 import { Duration } from 'aws-cdk-lib'
 import { Effect, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam'
 import { RequestAuthorizer, LambdaIntegration, IdentitySource, RestApi, Cors, IResource, Resource } from 'aws-cdk-lib/aws-apigateway'
-import { HttpMethod, Runtime } from 'aws-cdk-lib/aws-lambda'
+import { HttpMethod, IFunction, Runtime } from 'aws-cdk-lib/aws-lambda'
 import { Construct } from 'constructs'
 import { CnameRecord, HostedZone } from 'aws-cdk-lib/aws-route53'
 import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager'
@@ -17,6 +17,8 @@ export interface OpenAPIRestAPIProps {
   SubDomain: string
   HostedZoneDomain: string
   Verifiers: Verifier[]
+  AuthorizerPath?: string
+  AuthorizerARN?: string
 }
 
 export interface Verifier {
@@ -85,20 +87,33 @@ export default class OpenAPIRestAPI<R> extends Construct {
   }
 
   private createRestApi (scope: Construct, id: string, props: OpenAPIRestAPIProps): RestApi {
-    const authLambda = new NodejsFunction(scope, 'PrivateAPIAuthorizer', {
-      memorySize: 256,
-      timeout: Duration.seconds(5),
-      runtime: Runtime.NODEJS_18_X,
-      handler: 'handler',
-      entry: path.join(__dirname, '../../routes/authorizer.ts'),
-      bundling: {
-        minify: true,
-        externalModules: ['aws-sdk']
-      },
-      environment: {
-        AUTH_VERIFIERS_JSON: JSON.stringify(props.Verifiers)
-      }
-    })
+    if (props.AuthorizerARN !== undefined && props.AuthorizerPath !== undefined) {
+      throw new Error('OpenAPIRestAPI: AuthorizerARN and AuthorizerPath are mutually exclusive; please specify only one.')
+    }
+
+    if (props.Verifiers.length > 0 && props.AuthorizerARN !== undefined) {
+      throw new Error('OpenAPIRestAPI: AuthorizerARN and configurable Verifiers are mutually exclusive; please exclude Verifiers from your config or switch to the default authorizer by clearing the AuthorizerARN property.')
+    }
+
+    let authLambda: IFunction
+    if (props.AuthorizerARN !== undefined) {
+      authLambda = NodejsFunction.fromFunctionArn(scope, 'ExistingAPIAuthorizer', props.AuthorizerARN)
+    } else {
+      authLambda = new NodejsFunction(scope, 'PrivateAPIAuthorizer', {
+        memorySize: 256,
+        timeout: Duration.seconds(5),
+        runtime: Runtime.NODEJS_18_X,
+        handler: 'handler',
+        entry: path.join(__dirname, props.AuthorizerPath ?? './DefaultAuthorizer.ts'),
+        bundling: {
+          minify: true,
+          externalModules: ['aws-sdk']
+        },
+        environment: {
+          AUTH_VERIFIERS_JSON: JSON.stringify(props.Verifiers)
+        }
+      })
+    }
 
     const requestAuthorizer = new RequestAuthorizer(this, 'PrivateApiRequestAuthorizer', {
       handler: authLambda,
