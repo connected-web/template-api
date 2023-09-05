@@ -1,8 +1,7 @@
-import OpenAPIBasicModels from "../openapi/BasicModels"
+import OpenAPIBasicModels from '../openapi/BasicModels'
 import { JsonSchemaType, JsonSchemaVersion, IModel } from 'aws-cdk-lib/aws-apigateway'
 
 export default class StatusResponse extends OpenAPIBasicModels {
-  
   static get model (): IModel {
     return OpenAPIBasicModels.modelFactory?.create('StatusResponse', {
       schema: JsonSchemaVersion.DRAFT7,

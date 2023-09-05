@@ -40,7 +40,6 @@ export async function handler (event: APIGatewayProxyEvent): Promise<APIGatewayP
 
 /* This section is for route metadata used by CDK to create the stack that will host your endpoint */
 export class OpenAPISpecEndpoint extends OpenAPIRouteMetadata<Resources> {
-
   grantPermissions (scope: Construct, endpoint: NodejsFunction, resources: Resources): void {
     const apiInformationPolicy = new PolicyStatement({
       actions: ['apigateway:GET'],
@@ -50,19 +49,23 @@ export class OpenAPISpecEndpoint extends OpenAPIRouteMetadata<Resources> {
     endpoint.addToRolePolicy(apiInformationPolicy)
   }
 
-  get operationId(): string {
+  get operationId (): string {
     return 'getOpenAPISpec'
   }
 
-  get restSignature(): string {
+  get restSignature (): string {
     return 'GET /openapi'
   }
 
-  get lambdaConfig(): NodejsFunctionProps {
+  get routeEntryPoint (): string {
+    return __filename
+  }
+
+  get lambdaConfig (): NodejsFunctionProps {
     return {}
   }
 
-  get methodResponses(): MethodResponse[] {
+  get methodResponses (): MethodResponse[] {
     return [{
       statusCode: String(httpStatusCodes.success),
       responseParameters: {
@@ -71,16 +74,16 @@ export class OpenAPISpecEndpoint extends OpenAPIRouteMetadata<Resources> {
         'method.response.header.Access-Control-Allow-Credentials': true
       },
       responseModels: {
-        'application/json': BasicModels.BasicObjectModel
+        'application/json': BasicModels.singleton.BasicObjectModel
       }
     }]
   }
 
-  get methodRequestModels(): { [param: string]: IModel } | undefined {
-    return
+  get methodRequestModels (): { [param: string]: IModel } | undefined {
+    return undefined
   }
 
-  get requestParameters(): { [param: string]: boolean } | undefined {
-    return
+  get requestParameters (): { [param: string]: boolean } | undefined {
+    return undefined
   }
 }

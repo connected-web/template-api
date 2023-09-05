@@ -19,21 +19,24 @@ export async function handler (event: APIGatewayProxyEvent): Promise<APIGatewayP
 
 /* This section is for route metadata used by CDK to create the stack that will host your endpoint */
 export class StatusEndpoint extends OpenAPIRouteMetadata<Resources> {
-
   grantPermissions (scope: Construct, endpoint: NodejsFunction, resources: Resources): void {
     const serviceBucket = resources.serviceBucket
     serviceBucket.grantRead(endpoint)
   }
 
-  get operationId(): string {
+  get operationId (): string {
     return 'getStatus'
   }
 
-  get restSignature(): string {
+  get restSignature (): string {
     return 'GET /status'
   }
 
-  get lambdaConfig(): NodejsFunctionProps {
+  get routeEntryPoint (): string {
+    return __filename
+  }
+
+  get lambdaConfig (): NodejsFunctionProps {
     return {
       environment: {
         STATUS_INFO: JSON.stringify({
@@ -43,7 +46,7 @@ export class StatusEndpoint extends OpenAPIRouteMetadata<Resources> {
     }
   }
 
-  get methodResponses(): MethodResponse[] {
+  get methodResponses (): MethodResponse[] {
     return [{
       statusCode: '200',
       responseParameters: {
@@ -57,11 +60,11 @@ export class StatusEndpoint extends OpenAPIRouteMetadata<Resources> {
     }]
   }
 
-  get methodRequestModels(): { [param: string]: IModel } | undefined {
-    return
+  get methodRequestModels (): { [param: string]: IModel } | undefined {
+    return undefined
   }
 
-  get requestParameters(): { [param: string]: boolean } | undefined {
-    return
+  get requestParameters (): { [param: string]: boolean } | undefined {
+    return undefined
   }
 }

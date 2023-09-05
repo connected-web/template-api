@@ -16,21 +16,21 @@ export interface StackParameters { hostedZoneDomain: string, serviceDataBucketNa
 
 /**
  * ApiStack
- * 
+ *
  * The main stack for the API. This stack creates the API Gateway, and all of its endpoints.
- * 
+ *
  * Use this stack as a template for your own API.
- * 
+ *
  * Create your own endpoints in ./endpoints/ by extending the OpenAPIEndpoint class, and adding them to the API Gateway.
- * 
+ *
  * Share custom resources by implementing the ./Resources.ts class, which will be passed into your endpoints.
- * 
+ *
  * Document custom response and request models in ./models/ by extending the OpenAPIBasicModels class, and adding them to the API Gateway.
- * 
+ *
  * @param scope Construct scope for this construct
  * @param id Unique identifier for this construct
  * @param props StackProps object containing the description, subdomain, hosted zone domain, and verifiers for this API
- * 
+ *
  * @returns ApiStack
  */
 export class ApiStack extends cdk.Stack {

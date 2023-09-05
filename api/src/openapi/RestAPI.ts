@@ -23,33 +23,33 @@ export interface Verifier {
   name: string
   userPoolId: string // "us-east-1_123456789",
   tokenUse: 'id' | 'access' // "access",
-  clientId: string // "abcd1234ghij5678klmn9012", 
+  clientId: string // "abcd1234ghij5678klmn9012",
   oauthUrl: string // "https://connected-web.auth.us-east-1.amazoncognito.com"
 }
 
 /**
  * OpenAPIRestAPI
- * 
+ *
  * A composite object for a RestApi, its endpoints, and its execution role, for use with an OpenAPI compliant REST API.
- * 
+ *
  * Type <R> is the custom resources object supplied to endpoints; it can be any type you define.
  * Use this custom type to pass constructs, or other resources, to your endpoints as a method of dependency injection.
- * 
+ *
  * @param scope Construct scope for this construct
  * @param id Unique identifier for this construct
  * @param props OpenAPIRestAPIProps object containing the description, subdomain, hosted zone domain, and verifiers for this API
- * 
+ *
  * @returns OpenAPIRestAPI
- * 
+ *
  * @example
  * ```typescript
  * import { Construct } from 'constructs'
  * import { OpenAPIRestAPI } from 'cdk-openapi'
- * 
+ *
  * export default class ExampleAPI extends Construct {
  *  constructor (scope: Construct, id: string) {
  *   super(scope, id)
- * 
+ *
  *  const api = new OpenAPIRestAPI(this, 'ExampleAPI', {
  *    Description: 'Example API - created via AWS CDK',
  *    SubDomain: 'my-api',
@@ -220,13 +220,56 @@ export default class OpenAPIRestAPI<R> extends Construct {
     return this
   }
 
-  
-  addEndpoints<T>(endpoints: OpenAPIRouteMetadata<T>[]): OpenAPIRestAPI<R> {
-    throw new Error('Method not implemented.')
-    // TODO:
-    //   Decode the method and path from the endpoint.restSignature
-    //   Construct a new OpenAPIFunction for each endpoint
-    //   Add the endpoint to the OpenAPIRestAPI
+  createEndpointFromMetadata (endpointMetaData: OpenAPIRouteMetadata<R>): OpenAPIEndpoint<OpenAPIFunction> {
+    const supportedHttpMethods: { [key: string]: HttpMethod | undefined } = {
+      GET: HttpMethod.GET,
+      POST: HttpMethod.POST,
+      PUT: HttpMethod.PUT,
+      DELETE: HttpMethod.DELETE
+    }
+
+    const { restSignature } = endpointMetaData
+    const [methodKey, path] = restSignature.split(' ')
+    const method = supportedHttpMethods[methodKey]
+
+    if (method === undefined) {
+      throw new Error(`Unsupported HTTP method: ${methodKey}; supported keys are: ${Object.keys(supportedHttpMethods).join(', ')}`)
+    }
+
+    const oapiFunction = new OpenAPIFunction(endpointMetaData.operationId)
+    const lambda = oapiFunction.createNodeJSLambda(this, endpointMetaData.routeEntryPoint, endpointMetaData.lambdaConfig)
+    endpointMetaData.grantPermissions(this, lambda, this.sharedResources)
+    const endpoint = new OpenAPIEndpoint<OpenAPIFunction>(method, path, oapiFunction)
+
+    endpointMetaData.methodResponses?.forEach(methodResponse => {
+      endpoint.value.addMethodResponse(methodResponse)
+    })
+
+    if (endpointMetaData.methodRequestModels !== undefined) {
+      Object.entries(endpointMetaData.methodRequestModels).forEach(([contentTypeKey, requestModel]) => {
+        endpoint.value.addRequestModel(requestModel, contentTypeKey)
+      })
+    }
+
+    if (endpointMetaData.requestParameters !== undefined) {
+      Object.entries(endpointMetaData.requestParameters).forEach(([parameter, required]) => {
+        endpoint.value.addRequestParameter(parameter, required)
+      })
+    }
+
+    return endpoint
+  }
+
+  addEndpoints (endpoints: Array<OpenAPIRouteMetadata<R>>): OpenAPIRestAPI<R> {
+    endpoints.forEach(endpointMetaData => {
+      try {
+        const endpoint = this.createEndpointFromMetadata(endpointMetaData)
+        this.addEndpoint(endpoint)
+      } catch (ex) {
+        const error = ex as Error
+        console.error(`Unable to create endpoint for ${endpointMetaData.operationId} at ${endpointMetaData.restSignature}; Error: ${error.message}}`)
+      }
+    })
     return this
   }
 

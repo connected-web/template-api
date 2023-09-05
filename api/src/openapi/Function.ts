@@ -60,7 +60,9 @@ export default class OpenAPIFunction {
     }
 
     const finalProps = Object.assign({}, defaultProps, additionalProps ?? {})
-    return new NodejsFunction(scope, uppercaseFirstLetter(operationName), finalProps)
+    const lambda = new NodejsFunction(scope, uppercaseFirstLetter(operationName), finalProps)
+    this._lambda = lambda
+    return lambda
   }
 
   addMethodResponse (methodResponse: MethodResponse): OpenAPIFunction {
