@@ -1,4 +1,4 @@
-import OpenAPIBasicModels from '../openapi/BasicModels'
+import { OpenAPIBasicModels } from '@connected-web/openapi-rest-api'
 import { JsonSchemaType, JsonSchemaVersion, IModel } from 'aws-cdk-lib/aws-apigateway'
 
 export default class StatusResponse extends OpenAPIBasicModels {
