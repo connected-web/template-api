@@ -1,7 +1,6 @@
 {
   "name": "template-api-cdk",
   "version": "0.1.0",
-  "type": "module",
   "bin": {
     "app": "create-stack.ts"
   },
