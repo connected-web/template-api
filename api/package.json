@@ -8,7 +8,7 @@
   "scripts": {
     "cdk": "cdk",
     "cdk:synth": "cdk synth",
-    "deploy": "cdk deploy",
+    "deploy": "tsc && cdk deploy",
     "test": "ts-standard && npm run test:unit && npm run test:pre-deployment",
     "test:unit": "jest src/tests/unit/**.test.ts",
     "test:pre-deployment": "jest src/tests/pre-deployment/**.test.ts",
