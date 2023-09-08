@@ -2,15 +2,13 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult
 } from 'aws-lambda/trigger/api-gateway-proxy'
-import { httpStatusCodes, lambdaResponse } from '../openapi/Response'
+import { OpenAPIBasicModels, OpenAPIEnums, OpenAPIHelpers, OpenAPIRouteMetadata } from '@connected-web/openapi-rest-api'
 import { Construct } from 'constructs'
 import { APIGatewayClient, GetExportCommand } from '@aws-sdk/client-api-gateway'
 import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { MethodResponse, IModel } from 'aws-cdk-lib/aws-apigateway'
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam'
 import { Resources } from '../Resources'
-import { OpenAPIRouteMetadata } from '../openapi/Routes'
-import BasicModels from '../openapi/BasicModels'
 
 /* This handler is executed by AWS Lambda when the endpoint is invoked */
 export async function handler (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -35,7 +33,7 @@ export async function handler (event: APIGatewayProxyEvent): Promise<APIGatewayP
   }
 
   const responseData = openapiSpec ?? { message: 'Unable to retrieve or decode OpenAPI Spec', openapiSpec, error, event }
-  return lambdaResponse(200, JSON.stringify(responseData))
+  return OpenAPIHelpers.lambdaResponse(OpenAPIEnums.httpStatusCodes.success, JSON.stringify(responseData))
 }
 
 /* This section is for route metadata used by CDK to create the stack that will host your endpoint */
@@ -67,14 +65,14 @@ export class OpenAPISpecEndpoint extends OpenAPIRouteMetadata<Resources> {
 
   get methodResponses (): MethodResponse[] {
     return [{
-      statusCode: String(httpStatusCodes.success),
+      statusCode: String(OpenAPIEnums.httpStatusCodes.success),
       responseParameters: {
         'method.response.header.Content-Type': true,
         'method.response.header.Access-Control-Allow-Origin': true,
         'method.response.header.Access-Control-Allow-Credentials': true
       },
       responseModels: {
-        'application/json': BasicModels.singleton.BasicObjectModel
+        'application/json': OpenAPIBasicModels.singleton.BasicObjectModel
       }
     }]
   }

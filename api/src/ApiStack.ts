@@ -1,15 +1,14 @@
 import * as cdk from 'aws-cdk-lib'
 
 import { Construct } from 'constructs'
-import OpenAPIRestAPI, { Verifier } from './openapi/RestAPI'
-import OpenAPIBasicModels from './openapi/BasicModels'
+import { OpenAPIRestAPI, OpenAPIVerifiers, OpenAPIBasicModels } from '@connected-web/openapi-rest-api'
 
 import { Resources } from './Resources'
 import { StatusEndpoint } from './endpoints/Status'
 import { OpenAPISpecEndpoint } from './endpoints/OpenAPISpec'
 
 export interface IdentityConfig {
-  verifiers: Verifier[]
+  verifiers: OpenAPIVerifiers
 }
 
 export interface StackParameters { hostedZoneDomain: string, serviceDataBucketName: string, identity: IdentityConfig }
