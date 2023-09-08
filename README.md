@@ -11,6 +11,20 @@ A template for building highly scalable serverless APIs using AWS Lambda, API Ga
 - 🔑 SSO Authorization using AWS Cognito as a shared Auth service
 - 🔐 Deployed via Github Actions using preconfigured OIDC relationship
 
+
+## Deployment Summary
+
+Template API - https://github.com/connected-web/template-api
+
+Registered URL: https://template-api.dev.connected-web.services
+
+### Endpoints
+
+| Operation ID | HTTP Method | Path |
+| --- | --- | --- |
+| getStatus | GET | /status |
+| getOpenAPISpec | GET | /openapi |
+
 ## Contributing
 
 The API Template project is open for contributions. Please refer to the [Contributing Guidelines](CONTRIBUTING.md) for more information.
