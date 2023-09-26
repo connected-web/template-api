@@ -22,7 +22,7 @@ jobs:
     - name: Install npm dependencies
       run: npm ci
 
-    - name: Install npm dependencies
+    - name: Run tests
       run: npm run test
 
   deploy-cdk-api:
@@ -47,11 +47,11 @@ jobs:
           node-version: 20.x
 
       # Root project
-      - name: Install npm dependencies
+      - name: Install npm dependencies (root)
         run: npm ci
 
       # CDK API Project
-      - name: Install npm dependencies
+      - name: Install npm dependencies (api)
         run: npm install
         working-directory: ./api
 
