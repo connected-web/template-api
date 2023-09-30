@@ -62,4 +62,5 @@ jobs:
         run: npm run deploy -- --require-approval never
         env:
           CREATE_CNAME_RECORD: true
+          OPENAPI_REST_API_REPORT_SUMMARY: true
         working-directory: ./api
