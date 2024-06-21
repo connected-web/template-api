@@ -17,6 +17,7 @@
     "api"
   ],
   "devDependencies": {
+    "@types/node": "^20.14.7",
     "lerna": "^7.1.4"
   }
 }
