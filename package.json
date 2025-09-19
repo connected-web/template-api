@@ -12,7 +12,7 @@
   },
   "keywords": [],
   "author": "Connected Web",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "workspaces": [
     "api"
   ],
