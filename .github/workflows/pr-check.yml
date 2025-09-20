@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   test-cdk-api:
     name: Test CDK API
@@ -63,3 +67,9 @@ jobs:
           POST_DEPLOYMENT_AUTH_URL: ${{ vars.POST_DEPLOYMENT_AUTH_URL }}
           POST_DEPLOYMENT_CLIENT_ID: ${{ secrets.POST_DEPLOYMENT_CLIENT_ID }}
           POST_DEPLOYMENT_CLIENT_SECRET: ${{ secrets.POST_DEPLOYMENT_CLIENT_SECRET }}
+
+  publish-npm-client:
+    name: Publish NPM Client
+    needs: ['post-deployment-tests']
+    uses: ./.github/workflows/publish-npm-client.yml
+    secrets: inherit

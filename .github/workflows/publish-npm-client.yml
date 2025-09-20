@@ -1,0 +1,46 @@
+name: Publish API Client
+
+on:
+  workflow_dispatch:
+  release:
+    types:
+      - released
+      - prereleased
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.pull_request }}" ]; then
+            echo "Using 0.0.0-branch+gitref as the version for a PR"
+            echo "version=0.0.0-${{ github.head_ref }}-${{ github.sha }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.release.prerelease }}" == "true" ]; then
+            echo "Using the tag name for prerelease"
+            echo "version=${{ github.event.release.tag_name }}-RC${{ github.run_number }}" >> $GITHUB_OUTPUT
+          else
+            echo "Using the tag name for release"
+            echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Publish API Client
+        uses: connected-web/pnpfos@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          client-id: ${{ secrets.POST_DEPLOYMENT_CLIENT_ID }}
+          client-secret: ${{ secrets.POST_DEPLOYMENT_CLIENT_SECRET }}
+          oauth-token-url: 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token'
+          package-id: '@connected-web/template-api-client'
+          # openapi-spec-file: 'src/post-deployment/openapi-spec.json'
+          openapi-spec-url: 'https://template-api.dev.connected-web.services/openapi'
+          version: ${{ steps.version.outputs.version }}
