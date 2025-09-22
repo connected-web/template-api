@@ -16,7 +16,7 @@ AWS_ACCOUNT_ID=$(jq -r '.accountId' "${ACCOUNTS_PATH}$ACCOUNT_PROFILE.json" | ba
 [ ! -z "$AWS_ACCOUNT_ID" ] && echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID" >> $GITHUB_ENV || exit 1
 
 echo "Find AWS Account Config:"
-AWS_ACCOUNT_CONFIG=$(jq -c . "${ACCOUNTS_PATH}$ACCOUNT_PROFILE.json")
+AWS_ACCOUNT_CONFIG=$(jq -c . "${ACCOUNTS_PATH}$ACCOUNT_PROFILE.json" | base64 -w0)
 [ ! -z "$AWS_ACCOUNT_CONFIG" ] && echo "AWS_ACCOUNT_CONFIG=$AWS_ACCOUNT_CONFIG" >> $GITHUB_ENV || exit 1
 
 echo "Set ACCOUNT_PROFILE     : $ACCOUNT_PROFILE"
