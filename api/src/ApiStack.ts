@@ -9,7 +9,7 @@ import { OpenAPISpecEndpoint } from './endpoints/OpenAPISpec/metadata'
 
 export interface IdentityConfig {
   verifiers: OpenAPIVerifiers
-  headerBasedAuthorization?: OpenAPIHeaderAuthorizerProps 
+  headerBasedAuthorization?: OpenAPIHeaderAuthorizerProps
 }
 
 export interface StackParameters { hostedZoneDomain: string, serviceDataBucketName: string, identity: IdentityConfig }
