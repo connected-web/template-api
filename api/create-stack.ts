@@ -20,6 +20,8 @@ console.log('Account config:', { accountProfile, accountId, accountConfig })
 
 const app = new cdk.App()
 const stackName = accountConfig?.stackName ?? (() => { throw new Error('No stack name defined in account config') })()
+const subdomain = accountConfig?.subdomain ?? 'template-api'
+
 const stackTemplate = new ApiStack(app, stackName, {
   env: {
     account: CDK_DEFAULT_ACCOUNT ?? '123456789012',
@@ -27,9 +29,9 @@ const stackTemplate = new ApiStack(app, stackName, {
   }
 },
 {
-  subdomain: accountConfig?.subdomain ?? 'template-api',
+  subdomain,
   hostedZoneDomain: accountConfig.hostedZoneDomain,
-  serviceDataBucketName: ['template-api', accountConfig.environment].join('-'),
+  serviceDataBucketName: [subdomain, accountConfig.environment].join('-'),
   identity: accountConfig.identity
 })
 
