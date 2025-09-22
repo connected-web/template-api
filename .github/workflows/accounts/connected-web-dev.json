@@ -2,6 +2,7 @@
   "accountId": "ODA3NzI2NDAwMjAxCg==",
   "accountName": "connected-web-dev",
   "service": "connected-web",
+  "stackName": "TemplateAPI",
   "environment": "dev",
   "prefix": "dev",
   "hostedZoneDomain": "dev.connected-web.services",

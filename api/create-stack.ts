@@ -18,7 +18,7 @@ const accountId = AWS_ACCOUNT_ID
 console.log('Account config:', { accountProfile, accountId, accountConfig })
 
 const app = new cdk.App()
-const stackName = 'TemplateAPI'
+const stackName = accountConfig?.stackName ?? (() => { throw new Error('No stack name defined in account config') })()
 const stackTemplate = new ApiStack(app, stackName, {
   env: {
     account: CDK_DEFAULT_ACCOUNT ?? '123456789012',
