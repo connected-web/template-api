@@ -8,6 +8,7 @@ on:
         type: choice
         options:
         - connected-web-dev
+        - connected-web-dev-with-headers
         - connected-web-prod
         default: 'connected-web-dev'
   workflow_call:

@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib'
 
 import { Construct } from 'constructs'
-import { OpenAPIRestAPI, OpenAPIVerifiers, OpenAPIBasicModels } from '@connected-web/openapi-rest-api'
+import { OpenAPIRestAPI, OpenAPIVerifiers, OpenAPIBasicModels, OpenAPIHeaderAuthorizerProps } from '@connected-web/openapi-rest-api'
 
 import { Resources } from './Resources'
 import { StatusEndpoint } from './endpoints/Status/metadata'
@@ -9,6 +9,7 @@ import { OpenAPISpecEndpoint } from './endpoints/OpenAPISpec/metadata'
 
 export interface IdentityConfig {
   verifiers: OpenAPIVerifiers
+  headerBasedAuthorization?: OpenAPIHeaderAuthorizerProps 
 }
 
 export interface StackParameters { hostedZoneDomain: string, serviceDataBucketName: string, identity: IdentityConfig }
@@ -44,7 +45,8 @@ export class ApiStack extends cdk.Stack {
       Description: 'Template API - https://github.com/connected-web/template-api',
       SubDomain: 'template-api',
       HostedZoneDomain: config.hostedZoneDomain,
-      Verifiers: config?.identity.verifiers ?? []
+      Verifiers: config?.identity.verifiers ?? [],
+      HeaderAuthorizer: config?.identity?.headerBasedAuthorization
     }, sharedResources)
 
     // Kick of dependency injection for shared models and model factory
