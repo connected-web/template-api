@@ -42,7 +42,7 @@ jobs:
       # Authorise for target account
       - name: Read customer config to set AWS Account ID
         working-directory: ./.github/workflows/scripts
-        run: sh ./setupGithubEnvironment.sh ${{ github.event.inputs.account || 'connected-web-dev' }}
+        run: sh ./setupGithubEnvironment.sh ${{ inputs.account || github.event.inputs.account || 'connected-web-dev' }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2

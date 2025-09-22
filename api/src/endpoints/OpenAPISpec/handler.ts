@@ -3,7 +3,8 @@ import {
   APIGatewayProxyResult
 } from 'aws-lambda/trigger/api-gateway-proxy'
 import { APIGatewayClient, GetExportCommand } from '@aws-sdk/client-api-gateway'
-import { OpenAPIEnums, OpenAPIHelpers } from '@connected-web/openapi-rest-api'
+
+import { lambdaResponse, httpStatusCodes } from '../../helpers/Response'
 
 /* This handler is executed by AWS Lambda when the endpoint is invoked */
 export async function handler (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -28,5 +29,5 @@ export async function handler (event: APIGatewayProxyEvent): Promise<APIGatewayP
   }
 
   const responseData = openapiSpec ?? { message: 'Unable to retrieve or decode OpenAPI Spec', openapiSpec, error, event }
-  return OpenAPIHelpers.lambdaResponse(OpenAPIEnums.httpStatusCodes.success, JSON.stringify(responseData))
+  return lambdaResponse(httpStatusCodes.success, JSON.stringify(responseData))
 }

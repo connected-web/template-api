@@ -37,7 +37,7 @@ jobs:
     uses: ./.github/workflows/deploy-cdk-api.yml
     secrets: inherit
     with:
-      account: connected-web-dev-with-headers
+      account: connected-web-dev
       
   deploy-cdk-api-with-header-based-auth:
     name: Deploy API via CDK (with Header Based Auth)
