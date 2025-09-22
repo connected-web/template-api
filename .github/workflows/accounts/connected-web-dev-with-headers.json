@@ -4,6 +4,7 @@
   "service": "connected-web",
   "environment": "dev",
   "prefix": "dev",
+  "subdomain": "template-api-whba",
   "hostedZoneDomain": "dev.connected-web.services",
   "identity": {
     "verifiers": [],

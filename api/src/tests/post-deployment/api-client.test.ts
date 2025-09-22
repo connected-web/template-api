@@ -137,7 +137,7 @@ describe('Open API Spec', () => {
     })
   })
 
-  describe('Basic Client Endpoints', () => {
+  describe('Basic Client Endpoints with Cognito Based Authentication', () => {
     let appClient: ApiClientUnderTest
     beforeAll(async () => {
       const axiosApi = new OpenAPIClientAxios({
@@ -172,6 +172,65 @@ describe('Open API Spec', () => {
 
       ajv.validate({ $ref: 'app-openapi.json#/components/schemas/BasicObjectModel' }, response.data)
       expect(ajv.errors ?? []).toEqual([])
+    })
+  })
+
+  describe('Basic Client Endpoints with Header Based Authentication', () => {
+    let appClient: ApiClientUnderTest
+    beforeAll(async () => {
+      const axiosApi = new OpenAPIClientAxios({
+        definition: openapiDoc,
+        axiosConfigDefaults: {
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'User-Agent': 'github.com/connected-web/template-api post-deployment-tests/1.0',
+            'X-Website-Authcode': '123e4567-e89b-12d3-a456-426614174000'
+          },
+          validateStatus: function (status) {
+            return status >= 200 // don't throw errors on non-200 codes
+          }
+        }
+      })
+
+      appClient = await axiosApi.getClient<ApiClientUnderTest>()
+      appClient.interceptors.response.use((response) => response, (error) => {
+        console.log('Caught client error:', error.message)
+      })
+    })
+
+    it('should be possible to getOpenAPISpec', async () => {
+      const response = await appClient.getOpenAPISpec()
+
+      console.log('Get Open API Spec:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
+
+      ajv.validate({ $ref: 'app-openapi.json#/components/schemas/BasicObjectModel' }, response.data)
+      expect(ajv.errors ?? []).toEqual([])
+    })
+
+    it('should be possible to getStatus', async () => {
+      const response = await appClient.getStatus()
+
+      console.log('Get Status:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
+
+      ajv.validate({ $ref: 'app-openapi.json#/components/schemas/BasicObjectModel' }, response.data)
+      expect(ajv.errors ?? []).toEqual([])
+    })
+
+    it('should fail to getStatus with missing or incorrect header', async () => {
+      const originalAuthCode = appClient.defaults.headers['X-Website-Authcode']
+      appClient.defaults.headers['X-Website-Authcode'] = 'not-the-right-code'
+
+      const response = await appClient.getStatus()
+      console.log('Get Status with incorrect auth code:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
+      expect(response.status).toEqual(403)
+
+      delete appClient.defaults.headers['X-Website-Authcode']
+      const response2 = await appClient.getStatus()
+      console.log('Get Status with missing auth code:', response2.status, response2.statusText, JSON.stringify(response2.data, null, 2))
+      expect(response2.status).toEqual(403)
+
+      appClient.defaults.headers['X-Website-Authcode'] = originalAuthCode
     })
   })
 })

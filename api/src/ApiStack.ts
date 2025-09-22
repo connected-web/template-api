@@ -12,7 +12,12 @@ export interface IdentityConfig {
   headerBasedAuthorization?: OpenAPIHeaderAuthorizerProps
 }
 
-export interface StackParameters { hostedZoneDomain: string, serviceDataBucketName: string, identity: IdentityConfig }
+export interface StackParameters {
+  subdomain: string
+  hostedZoneDomain: string
+  serviceDataBucketName: string
+  identity: IdentityConfig
+}
 
 /**
  * ApiStack
@@ -43,7 +48,7 @@ export class ApiStack extends cdk.Stack {
     // Create API Gateway
     const apiGateway = new OpenAPIRestAPI<Resources>(this, 'Template API', {
       Description: 'Template API - https://github.com/connected-web/template-api',
-      SubDomain: 'template-api',
+      SubDomain: config.subdomain,
       HostedZoneDomain: config.hostedZoneDomain,
       Verifiers: config?.identity.verifiers ?? [],
       HeaderAuthorizer: config?.identity?.headerBasedAuthorization

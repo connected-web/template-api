@@ -31,17 +31,25 @@ jobs:
     - name: Run tests
       run: npm run test
 
-  deploy-cdk-api:
+  deploy-cdk-api-with-cognito-auth:
     name: Deploy API via CDK
     needs: ['test-cdk-api']
     uses: ./.github/workflows/deploy-cdk-api.yml
     secrets: inherit
     with:
-      account: connected-web-dev
+      account: connected-web-dev-with-headers
       
+  deploy-cdk-api-with-header-based-auth:
+    name: Deploy API via CDK
+    needs: ['test-cdk-api']
+    uses: ./.github/workflows/deploy-cdk-api.yml
+    secrets: inherit
+    with:
+      account: connected-web-dev-with-headers
+
   post-deployment-tests:
     name: Post-deployment Tests for API
-    needs: ['deploy-cdk-api']
+    needs: ['deploy-cdk-api-with-cognito-auth', 'deploy-cdk-api-with-header-based-auth']
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
