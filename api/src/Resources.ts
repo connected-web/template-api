@@ -31,11 +31,10 @@ export class Resources {
   }
 
   get serviceBucket (): s3.Bucket {
-    const serviceBucketName = this.config.serviceDataBucketName
     return new s3.Bucket(this.stack, 'ServiceDataBucket', {
-      bucketName: serviceBucketName,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
-      versioned: true
+      autoDeleteObjects: true,
+      versioned: false
     })
   }
 }

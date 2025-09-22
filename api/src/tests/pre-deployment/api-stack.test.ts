@@ -20,7 +20,6 @@ const getTemplate = (): Template => {
   {
     subdomain: 'test-api',
     hostedZoneDomain: 'dummy.domain.name',
-    serviceDataBucketName: 'test-stack-stub-bucket-name',
     identity: {
       verifiers: []
     }

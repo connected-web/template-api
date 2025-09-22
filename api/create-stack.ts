@@ -31,7 +31,6 @@ const stackTemplate = new ApiStack(app, stackName, {
 {
   subdomain,
   hostedZoneDomain: accountConfig.hostedZoneDomain,
-  serviceDataBucketName: [subdomain, accountConfig.environment].join('-'),
   identity: accountConfig.identity
 })
 

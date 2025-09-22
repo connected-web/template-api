@@ -15,7 +15,6 @@ export interface IdentityConfig {
 export interface StackParameters {
   subdomain: string
   hostedZoneDomain: string
-  serviceDataBucketName: string
   identity: IdentityConfig
 }
 
