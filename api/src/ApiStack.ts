@@ -43,7 +43,7 @@ export class ApiStack extends cdk.Stack {
     super(scope, id, props)
 
     // Create shared resources
-    const sharedResources = new Resources(scope, this)
+    const sharedResources = new Resources(scope, this, config)
 
     // Create API Gateway
     const apiGateway = new OpenAPIRestAPI<Resources>(this, 'Template API', {

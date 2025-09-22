@@ -2,6 +2,7 @@
 import { Construct } from 'constructs'
 import * as cdk from 'aws-cdk-lib'
 import * as s3 from 'aws-cdk-lib/aws-s3'
+import { StackParameters } from './ApiStack'
 
 /**
  * Resources
@@ -15,20 +16,22 @@ import * as s3 from 'aws-cdk-lib/aws-s3'
  *
  * @param scope Construct scope for this construct
  * @param stack Stack object for this construct
- *
+ * @param config StackParameters object containing configuration values for this API
  * @returns Resources
  */
 export class Resources {
   scope: Construct
   stack: cdk.Stack
+  config: StackParameters
 
-  constructor (scope: Construct, stack: cdk.Stack) {
+  constructor (scope: Construct, stack: cdk.Stack, config: StackParameters) {
     this.scope = scope
     this.stack = stack
+    this.config = config
   }
 
   get serviceBucket (): s3.Bucket {
-    const serviceBucketName = process.env.SERVICE_BUCKET_NAME ?? 'template-api-service-data-bucket'
+    const serviceBucketName = this.config.serviceDataBucketName
     return new s3.Bucket(this.stack, 'ServiceDataBucket', {
       bucketName: serviceBucketName,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
