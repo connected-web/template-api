@@ -223,12 +223,12 @@ describe('Open API Spec', () => {
 
       const response = await appClient.getStatus()
       console.log('Get Status with incorrect auth code:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
-      expect(response.status).toEqual(403)
+      expect(response.status).toEqual(401)
 
       delete appClient.defaults.headers['X-Website-Authcode']
       const response2 = await appClient.getStatus()
       console.log('Get Status with missing auth code:', response2.status, response2.statusText, JSON.stringify(response2.data, null, 2))
-      expect(response2.status).toEqual(403)
+      expect(response2.status).toEqual(401)
 
       appClient.defaults.headers['X-Website-Authcode'] = originalAuthCode
     })
