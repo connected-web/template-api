@@ -32,7 +32,7 @@ jobs:
       run: npm run test
 
   deploy-cdk-api-with-cognito-auth:
-    name: Deploy API via CDK
+    name: Deploy API via CDK (with Cognito Auth)
     needs: ['test-cdk-api']
     uses: ./.github/workflows/deploy-cdk-api.yml
     secrets: inherit
@@ -40,7 +40,7 @@ jobs:
       account: connected-web-dev-with-headers
       
   deploy-cdk-api-with-header-based-auth:
-    name: Deploy API via CDK
+    name: Deploy API via CDK (with Header Based Auth)
     needs: ['test-cdk-api']
     uses: ./.github/workflows/deploy-cdk-api.yml
     secrets: inherit
