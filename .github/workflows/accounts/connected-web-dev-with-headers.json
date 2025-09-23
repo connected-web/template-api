@@ -10,6 +10,7 @@
   "identity": {
     "verifiers": [],
     "headerBasedAuthorization": {
+      "authorizationHeaders": ["User-Agent", "X-Website-Authcode"],
       "requiredHeadersWithAllowedValues": {
         "Content-Type": ["application/json"],
         "Accept": ["application/json"]
