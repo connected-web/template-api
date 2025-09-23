@@ -156,7 +156,7 @@ describe('Open API Spec', () => {
 
     it('should fail to getStatus with missing or incorrect header', async () => {
       const originalAuthCode = appClient.defaults.headers['X-Website-Authcode']
-      
+
       // Test with a properly formatted but unauthorized UUID
       appClient.defaults.headers['X-Website-Authcode'] = randomUUID()
 
