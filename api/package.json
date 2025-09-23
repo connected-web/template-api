@@ -13,6 +13,7 @@
     "test:pre-deployment": "jest src/tests/pre-deployment/**.test.ts",
     "post-deployment": "npm run test:post-deployment && npm run typegen:for-post-deployment",
     "test:post-deployment": "jest src/tests/post-deployment/**.test.ts",
+    "test:hba": "jest src/tests/post-deployment/api-whba-client.test.ts",
     "typegen:for-post-deployment": "typegen src/tests/post-deployment/downloaded-app-openapi.json > src/tests/post-deployment/api-client.d.ts && npm run lint",
     "lint": "ts-standard --fix"
   },

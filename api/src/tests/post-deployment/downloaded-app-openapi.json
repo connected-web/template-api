@@ -3,7 +3,7 @@
   "info": {
     "title": "Template API",
     "description": "Template API - https://github.com/connected-web/template-api",
-    "version": "2023-09-07T21:22:45Z"
+    "version": "2025-09-22T21:53:58Z"
   },
   "servers": [
     {
@@ -37,7 +37,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StatusResponseModel"
+                  "$ref": "#/components/schemas/ApiResponseModel"
                 }
               }
             }
@@ -184,25 +184,35 @@
   },
   "components": {
     "schemas": {
-      "StatusResponseModel": {
-        "title": "Status",
-        "required": [
-          "deploymentTime"
-        ],
-        "type": "object",
-        "properties": {
-          "deploymentTime": {
-            "type": "string",
-            "description": "The UTC timestamp representing the last time the server was updated"
-          }
-        }
-      },
       "BasicObjectModel": {
         "title": "Basic Object",
         "type": "object",
         "properties": {},
         "additionalProperties": true,
         "description": "A basic JSON object with key value pairs"
+      },
+      "ApiResponseModel": {
+        "title": "Basic API Response",
+        "required": [
+          "message",
+          "statusCode",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The type of the response: success, error, or warning"
+          },
+          "message": {
+            "type": "string",
+            "description": "The message content describing the response"
+          },
+          "statusCode": {
+            "type": "integer",
+            "description": "The HTTP status code of the response"
+          }
+        }
       }
     },
     "securitySchemes": {
