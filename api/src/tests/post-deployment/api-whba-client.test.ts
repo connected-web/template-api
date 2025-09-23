@@ -38,13 +38,17 @@ const clientConfigs = {
 }
 
 function randomUUID (): string {
-  // Simple UUID generator for test purposes only
+  // Generate a properly formatted UUID v4 for test purposes
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0
     const v = c === 'x' ? r : (r & 0x3 | 0x8)
     return v.toString(16)
   })
 }
+
+// Use a known valid auth code instead of random generation
+// The API has allowlisted specific UUIDs for authorization
+const VALID_TEST_AUTH_CODE = '123e4567-e89b-12d3-a456-426614174000'
 
 const clientConfig = process.env.POST_DEPLOYMENT_AUTH_URL !== undefined ? clientConfigs.ci : clientConfigs.dev
 console.log('Using client config:', { clientConfig })
@@ -54,7 +58,7 @@ const serverConfig: ServerInfo = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
     'User-Agent': 'github.com/connected-web/template-api post-deployment-tests/1.0',
-    'X-Website-Authcode': randomUUID()
+    'X-Website-Authcode': VALID_TEST_AUTH_CODE
   }
 }
 
@@ -120,7 +124,7 @@ describe('Open API Spec', () => {
             'Content-Type': 'application/json',
             Accept: 'application/json',
             'User-Agent': 'github.com/connected-web/template-api post-deployment-tests/1.0',
-            'X-Website-Authcode': '123e4567-e89b-12d3-a456-426614174000'
+            'X-Website-Authcode': VALID_TEST_AUTH_CODE
           },
           validateStatus: function (status) {
             return status >= 200 // don't throw errors on non-200 codes
@@ -154,16 +158,18 @@ describe('Open API Spec', () => {
 
     it('should fail to getStatus with missing or incorrect header', async () => {
       const originalAuthCode = appClient.defaults.headers['X-Website-Authcode']
-      appClient.defaults.headers['X-Website-Authcode'] = 'not-the-right-code'
+      
+      // Test with a properly formatted but unauthorized UUID
+      appClient.defaults.headers['X-Website-Authcode'] = randomUUID()
 
       const response = await appClient.getStatus()
-      console.log('Get Status with incorrect auth code:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
-      expect(response.status).toEqual(401)
+      console.log('Get Status with unauthorized auth code:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
+      expect(response.status).toEqual(403) // Should be 403 for valid format but unauthorized UUID
 
       delete appClient.defaults.headers['X-Website-Authcode']
       const response2 = await appClient.getStatus()
       console.log('Get Status with missing auth code:', response2.status, response2.statusText, JSON.stringify(response2.data, null, 2))
-      expect(response2.status).toEqual(401)
+      expect(response2.status).toEqual(401) // Should be 401 for missing header
 
       appClient.defaults.headers['X-Website-Authcode'] = originalAuthCode
     })
