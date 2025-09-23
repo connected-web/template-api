@@ -46,10 +46,8 @@ function randomUUID (): string {
   })
 }
 
-// Use a known valid auth code instead of random generation
-// The API has allowlisted specific UUIDs for authorization
-const VALID_TEST_AUTH_CODE = '123e4567-e89b-12d3-a456-426614174000'
-
+// Fixed: Removed Content-Type and Accept from required headers in API config
+// Now any properly formatted UUID should work with any standard HTTP client
 const clientConfig = process.env.POST_DEPLOYMENT_AUTH_URL !== undefined ? clientConfigs.ci : clientConfigs.dev
 console.log('Using client config:', { clientConfig })
 const serverConfig: ServerInfo = {
@@ -58,7 +56,7 @@ const serverConfig: ServerInfo = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
     'User-Agent': 'github.com/connected-web/template-api post-deployment-tests/1.0',
-    'X-Website-Authcode': VALID_TEST_AUTH_CODE
+    'X-Website-Authcode': randomUUID()
   }
 }
 
@@ -124,7 +122,7 @@ describe('Open API Spec', () => {
             'Content-Type': 'application/json',
             Accept: 'application/json',
             'User-Agent': 'github.com/connected-web/template-api post-deployment-tests/1.0',
-            'X-Website-Authcode': VALID_TEST_AUTH_CODE
+            'X-Website-Authcode': randomUUID()
           },
           validateStatus: function (status) {
             return status >= 200 // don't throw errors on non-200 codes
