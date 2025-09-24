@@ -54,7 +54,7 @@ const serverConfig: ServerInfo = {
   baseURL: clientConfig.serviceUnderTest,
   headers: {
     'content-type': 'application/json',
-    'accept': 'application/json',
+    accept: 'application/json',
     'user-agent': 'github.com/connected-web/template-api post-deployment-tests/1.0',
     'x-website-authcode': randomUUID()
   }
@@ -120,7 +120,7 @@ describe('Open API Spec', () => {
         axiosConfigDefaults: {
           headers: {
             'content-type': 'application/json',
-            'accept': 'application/json',
+            accept: 'application/json',
             'user-agent': 'github.com/connected-web/template-api post-deployment-tests/1.0',
             'x-website-authcode': randomUUID()
           },
