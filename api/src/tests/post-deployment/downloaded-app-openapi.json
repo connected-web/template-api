@@ -3,11 +3,11 @@
   "info": {
     "title": "Template API",
     "description": "Template API - https://github.com/connected-web/template-api",
-    "version": "2025-09-23T09:05:04Z"
+    "version": "2025-09-22T21:53:58Z"
   },
   "servers": [
     {
-      "url": "https://template-api-whba.dev.connected-web.services"
+      "url": "https://template-api.dev.connected-web.services"
     }
   ],
   "paths": {
@@ -45,7 +45,7 @@
         },
         "security": [
           {
-            "TemplateAPIWithHeadersTemplateAPIPrivateApiRequestAuthorizer6BD2389A": []
+            "TemplateAPITemplateAPIPrivateApiRequestAuthorizer5B65ABA5": []
           }
         ]
       },
@@ -114,7 +114,7 @@
         },
         "security": [
           {
-            "TemplateAPIWithHeadersTemplateAPIPrivateApiRequestAuthorizer6BD2389A": []
+            "TemplateAPITemplateAPIPrivateApiRequestAuthorizer5B65ABA5": []
           }
         ]
       },
@@ -216,9 +216,9 @@
       }
     },
     "securitySchemes": {
-      "TemplateAPIWithHeadersTemplateAPIPrivateApiRequestAuthorizer6BD2389A": {
+      "TemplateAPITemplateAPIPrivateApiRequestAuthorizer5B65ABA5": {
         "type": "apiKey",
-        "name": "Unused",
+        "name": "Authorization",
         "in": "header",
         "x-amazon-apigateway-authtype": "custom"
       }

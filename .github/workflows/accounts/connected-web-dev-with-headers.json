@@ -12,6 +12,8 @@
     "headerBasedAuthorization": {
       "authorizationHeaders": ["User-Agent", "X-Website-Authcode"],
       "requiredHeadersWithAllowedValues": {
+        "Content-Type": ["application/json"],
+        "Accept": ["application/json"]
       },
       "requiredHeadersRegexValues": {
         "User-Agent": "^[a-zA-Z0-9 .\\-_/]+$",
