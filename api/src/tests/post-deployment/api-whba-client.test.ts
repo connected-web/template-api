@@ -1,4 +1,5 @@
-import { expect, describe, it, beforeAll } from '@jest/globals'
+import { expect } from 'chai'
+import { describe, it, before } from 'mocha'
 
 import axios from 'axios'
 import OpenAPIClientAxios, { Document } from 'openapi-client-axios'
@@ -66,7 +67,7 @@ describe('Open API Spec', () => {
 
   console.log('Server:', { serverConfig })
 
-  beforeAll(async () => {
+  before(async () => {
     console.log('Implicit test: it should download the openapi spec for the App Store from /openapi')
     const basicClient = axios.create(serverConfig)
     console.log('Created basic Axios client using:', { serverConfig })
@@ -82,7 +83,7 @@ describe('Open API Spec', () => {
   describe('Open API Document', () => {
     it('should contain an info block with title and description', async () => {
       const { version, ...testableProps } = openapiDoc.info
-      expect(testableProps).toEqual({
+      expect(testableProps).to.deep.equal({
         title: 'Template API',
         description: 'Template API - https://github.com/connected-web/template-api'
       })
@@ -90,7 +91,7 @@ describe('Open API Spec', () => {
 
     it('should contain a list of paths', async () => {
       const pathStrings = Object.keys(openapiDoc.paths as any).sort()
-      expect(pathStrings).toEqual([
+      expect(pathStrings).to.deep.equal([
         '/',
         '/openapi',
         '/status'
@@ -103,18 +104,16 @@ describe('Open API Spec', () => {
       const axiosApi = new OpenAPIClientAxios({ definition: openapiDoc, axiosConfigDefaults: { headers: serverConfig.headers } })
       const appStoreClient = await axiosApi.getClient()
       const actualClientKeys = Object.keys(appStoreClient)
-      expect(actualClientKeys).toEqual(
-        expect.arrayContaining([
-          'getOpenAPISpec',
-          'getStatus'
-        ])
-      )
+      expect(actualClientKeys).to.include.members([
+        'getOpenAPISpec',
+        'getStatus'
+      ])
     })
   })
 
   describe('Basic Client Endpoints with Header Based Authentication', () => {
     let appClient: ApiClientUnderTest
-    beforeAll(async () => {
+    before(async () => {
       const axiosApi = new OpenAPIClientAxios({
         definition: openapiDoc,
         axiosConfigDefaults: {
@@ -142,7 +141,7 @@ describe('Open API Spec', () => {
       console.log('Get Open API Spec:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
 
       ajv.validate({ $ref: 'app-openapi.json#/components/schemas/BasicObjectModel' }, response.data)
-      expect(ajv.errors ?? []).toEqual([])
+      expect(ajv.errors ?? []).to.deep.equal([])
     })
 
     it('should be possible to getStatus', async () => {
@@ -151,7 +150,7 @@ describe('Open API Spec', () => {
       console.log('Get Status:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
 
       ajv.validate({ $ref: 'app-openapi.json#/components/schemas/BasicObjectModel' }, response.data)
-      expect(ajv.errors ?? []).toEqual([])
+      expect(ajv.errors ?? []).to.deep.equal([])
     })
 
     it('should fail to getStatus with missing or incorrect header', async () => {
@@ -162,12 +161,12 @@ describe('Open API Spec', () => {
 
       const response = await appClient.getStatus()
       console.log('Get Status with invalid UUID format:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
-      expect(response.status).toEqual(403) // Should be 403 for invalid UUID format
+      expect(response.status).to.equal(403) // Should be 403 for invalid UUID format
 
       delete appClient.defaults.headers['x-website-authcode']
       const response2 = await appClient.getStatus()
       console.log('Get Status with missing auth code:', response2.status, response2.statusText, JSON.stringify(response2.data, null, 2))
-      expect(response2.status).toEqual(401) // Should be 401 for missing required header
+      expect(response2.status).to.equal(401) // Should be 401 for missing required header
 
       appClient.defaults.headers['x-website-authcode'] = originalAuthCode
     })

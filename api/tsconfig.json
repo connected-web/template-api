@@ -14,7 +14,11 @@
     "declarationDir": "./dist",
     "outDir": "./dist",
     "typeRoots": ["node_modules/@types"],
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@connected-web/openapi-rest-api": ["../node_modules/@connected-web/openapi-rest-api/library/dist/PackageIndex"]
+    }
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "cdk.out"]
