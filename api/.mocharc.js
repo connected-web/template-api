@@ -5,7 +5,6 @@ module.exports = {
   require: ['ts-node/register'],
   extensions: ['ts'],
   'ts-node': {
-    project: './tsconfig.json',
-    require: ['tsconfig-paths/register']
+    project: './tsconfig.json'
   }
 }
