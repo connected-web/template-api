@@ -21,8 +21,7 @@
       },
       "disallowedHeaders": [
         "Cookie",
-        "Set-Cookie",
-        "X-Forwarded-For"
+        "Set-Cookie"
       ],
       "disallowedHeaderRegexes": [
         "^Proxy-.*$",
