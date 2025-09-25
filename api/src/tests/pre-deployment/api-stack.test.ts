@@ -1,4 +1,4 @@
-import { describe, it, beforeAll } from '@jest/globals'
+import { describe, it, before } from 'mocha'
 
 import * as cdk from 'aws-cdk-lib'
 import { Template } from 'aws-cdk-lib/assertions'
@@ -18,8 +18,8 @@ const getTemplate = (): Template => {
     }
   },
   {
+    subdomain: 'test-api',
     hostedZoneDomain: 'dummy.domain.name',
-    serviceDataBucketName: 'test-stack-stub-bucket-name',
     identity: {
       verifiers: []
     }
@@ -32,7 +32,7 @@ const getTemplate = (): Template => {
 describe('REST API', () => {
   let template: Template
 
-  beforeAll(() => {
+  before(() => {
     template = getTemplate()
   })
 

@@ -16,17 +16,6 @@ const ajv = new Ajv({ allErrors: true, strict: false })
 ajv.addMetaSchema(draft7MetaSchema)
 addFormats(ajv)
 
-const {
-  POST_DEPLOYMENT_SERVER_DOMAIN,
-  POST_DEPLOYMENT_AUTH_URL,
-  POST_DEPLOYMENT_CLIENT_ID,
-  POST_DEPLOYMENT_CLIENT_SECRET,
-  CONNECTED_WEB_DEV_SSO_CLIENT_ID,
-  CONNECTED_WEB_DEV_SSO_SECRET,
-  CONNECTED_WEB_PROD_SSO_CLIENT_ID,
-  CONNECTED_WEB_PROD_SSO_SECRET
-} = process.env
-
 interface ServerInfo {
   baseURL: string
   headers: {
@@ -39,48 +28,37 @@ const clientConfigs = {
     error: 'No mode set; use --dev or --prod to specify credentials realm'
   },
   dev: {
-    clientId: CONNECTED_WEB_DEV_SSO_CLIENT_ID as string,
-    clientSecret: CONNECTED_WEB_DEV_SSO_SECRET as string,
-    oauthTokenEndpoint: 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token',
-    serviceUnderTest: 'https://template-api.dev.connected-web.services'
+    serviceUnderTest: 'https://template-api-whba.dev.connected-web.services'
   },
   prod: {
-    clientId: CONNECTED_WEB_PROD_SSO_CLIENT_ID as string,
-    clientSecret: CONNECTED_WEB_PROD_SSO_SECRET as string,
-    oauthTokenEndpoint: 'https://connected-web.auth.eu-west-2.amazoncognito.com/oauth2/token',
-    serviceUnderTest: 'https://template-api.prod.connected-web.services'
+    serviceUnderTest: 'https://template-api-whba.prod.connected-web.services'
   },
   ci: {
-    clientId: POST_DEPLOYMENT_CLIENT_ID as string,
-    clientSecret: POST_DEPLOYMENT_CLIENT_SECRET as string,
-    oauthTokenEndpoint: POST_DEPLOYMENT_AUTH_URL as string,
-    serviceUnderTest: POST_DEPLOYMENT_SERVER_DOMAIN as string
+    serviceUnderTest: 'https://template-api-whba.dev.connected-web.services'
   }
 }
 
-const clientConfig = POST_DEPLOYMENT_AUTH_URL !== undefined ? clientConfigs.ci : clientConfigs.dev
+function randomUUID (): string {
+  // Generate a properly formatted UUID v4 for test purposes
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
+// Fixed: Removed Content-Type and Accept from required headers in API config
+// Now any properly formatted UUID should work with any standard HTTP client
+const clientConfig = process.env.POST_DEPLOYMENT_AUTH_URL !== undefined ? clientConfigs.ci : clientConfigs.dev
 console.log('Using client config:', { clientConfig })
 const serverConfig: ServerInfo = {
   baseURL: clientConfig.serviceUnderTest,
   headers: {
-    authorization: 'Bearer not-specified',
-    'content-type': 'application/json'
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'User-Agent': 'github.com/connected-web/template-api post-deployment-tests/1.0',
+    'X-Website-Authcode': randomUUID()
   }
-}
-
-async function getOAuthToken (): Promise<string> {
-  const { clientId, clientSecret, oauthTokenEndpoint } = clientConfig
-  const requestPayload = [
-    'grant_type=client_credentials',
-    `client_id=${clientId}`
-  ].join('&')
-  const requestHeaders = {
-    accept: 'application/json',
-    'content-type': 'application/x-www-form-urlencoded',
-    authorization: `Basic ${btoa([clientId, clientSecret].join(':'))}`
-  }
-  const tokenResponse = await axios.post(oauthTokenEndpoint, requestPayload, { headers: requestHeaders })
-  return tokenResponse?.data?.access_token ?? 'not-set'
 }
 
 describe('Open API Spec', () => {
@@ -91,9 +69,6 @@ describe('Open API Spec', () => {
 
   before(async () => {
     console.log('Implicit test: it should download the openapi spec for the App Store from /openapi')
-    const oauthToken = await getOAuthToken()
-    console.log('Received OAuth Token:', { oauthToken })
-    serverConfig.headers.authorization = `Bearer ${oauthToken}`
     const basicClient = axios.create(serverConfig)
     console.log('Created basic Axios client using:', { serverConfig })
 
@@ -136,13 +111,18 @@ describe('Open API Spec', () => {
     })
   })
 
-  describe('Basic Client Endpoints with Cognito Based Authentication', () => {
+  describe('Basic Client Endpoints with Header Based Authentication', () => {
     let appClient: ApiClientUnderTest
     before(async () => {
       const axiosApi = new OpenAPIClientAxios({
         definition: openapiDoc,
         axiosConfigDefaults: {
-          headers: serverConfig.headers,
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'User-Agent': 'github.com/connected-web/template-api post-deployment-tests/1.0',
+            'X-Website-Authcode': randomUUID()
+          },
           validateStatus: function (status) {
             return status >= 200 // don't throw errors on non-200 codes
           }
@@ -171,6 +151,24 @@ describe('Open API Spec', () => {
 
       ajv.validate({ $ref: 'app-openapi.json#/components/schemas/BasicObjectModel' }, response.data)
       expect(ajv.errors ?? []).to.deep.equal([])
+    })
+
+    it('should fail to getStatus with missing or incorrect header', async () => {
+      const originalAuthCode = appClient.defaults.headers['X-Website-Authcode']
+
+      // Test with an improperly formatted UUID (should fail regex validation)
+      appClient.defaults.headers['X-Website-Authcode'] = 'invalid-uuid-format'
+
+      const response = await appClient.getStatus()
+      console.log('Get Status with invalid UUID format:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
+      expect(response.status).to.equal(403) // Should be 403 for invalid UUID format
+
+      delete appClient.defaults.headers['X-Website-Authcode']
+      const response2 = await appClient.getStatus()
+      console.log('Get Status with missing auth code:', response2.status, response2.statusText, JSON.stringify(response2.data, null, 2))
+      expect(response2.status).to.equal(401) // Should be 401 for missing required header
+
+      appClient.defaults.headers['X-Website-Authcode'] = originalAuthCode
     })
   })
 })

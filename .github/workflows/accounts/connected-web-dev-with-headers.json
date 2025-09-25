@@ -1,0 +1,33 @@
+{
+  "accountId": "ODA3NzI2NDAwMjAxCg==",
+  "accountName": "connected-web-dev",
+  "service": "connected-web",
+  "stackName": "TemplateAPIWithHeaders",
+  "environment": "dev",
+  "prefix": "dev",
+  "subdomain": "template-api-whba",
+  "hostedZoneDomain": "dev.connected-web.services",
+  "identity": {
+    "verifiers": [],
+    "headerBasedAuthorization": {
+      "authorizationHeaders": ["User-Agent", "X-Website-Authcode"],
+      "requiredHeadersWithAllowedValues": {
+        "Content-Type": ["application/json"],
+        "Accept": ["application/json"]
+      },
+      "requiredHeadersRegexValues": {
+        "User-Agent": "^[a-zA-Z0-9 .\\-_/]+$",
+        "X-Website-Authcode": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+      },
+      "disallowedHeaders": [
+        "Cookie",
+        "Set-Cookie"
+      ],
+      "disallowedHeaderRegexes": [
+        "^Proxy-.*$",
+        "^X-Real-IP$"
+      ]
+    }
+  }
+}
+

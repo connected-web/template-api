@@ -2,6 +2,7 @@
   "accountId": "Nzk0NzIyNjE4NDYzCg==",
   "accountName": "connected-web-prod",
   "service": "connected-web",
+  "stackName": "TemplateAPI",
   "environment": "prod",
   "prefix": "",
   "hostedZoneDomain": "prod.connected-web.services",

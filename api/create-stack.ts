@@ -12,13 +12,16 @@ const {
 } = process.env
 
 const accountProfile = ACCOUNT_PROFILE
-const accountConfig = JSON.parse(AWS_ACCOUNT_CONFIG ?? '{}')
+const raw = AWS_ACCOUNT_CONFIG ?? ''
+const accountConfig = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'))
 const accountId = AWS_ACCOUNT_ID
 
 console.log('Account config:', { accountProfile, accountId, accountConfig })
 
 const app = new cdk.App()
-const stackName = 'TemplateAPI'
+const stackName = accountConfig?.stackName ?? (() => { throw new Error('No stack name defined in account config') })()
+const subdomain = accountConfig?.subdomain ?? 'template-api'
+
 const stackTemplate = new ApiStack(app, stackName, {
   env: {
     account: CDK_DEFAULT_ACCOUNT ?? '123456789012',
@@ -26,8 +29,8 @@ const stackTemplate = new ApiStack(app, stackName, {
   }
 },
 {
+  subdomain,
   hostedZoneDomain: accountConfig.hostedZoneDomain,
-  serviceDataBucketName: ['template-api', accountConfig.environment].join('-'),
   identity: accountConfig.identity
 })
 
