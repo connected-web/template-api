@@ -45,7 +45,7 @@ jobs:
         run: sh ./setupGithubEnvironment.sh ${{ inputs.account || github.event.inputs.account || 'connected-web-dev' }}
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v5
         env:
           AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
         with:
