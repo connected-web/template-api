@@ -4,11 +4,11 @@
   "description": "Template API for Connected Web",
   "main": "api/src/ApiStack.ts",
   "scripts": {
-    "lint": "lerna run lint",
-    "test": "lerna run test",
-    "post-deployment": "lerna run post-deployment",
-    "test:post-deployment": "lerna run test:post-deployment",
-    "typegen:for-post-deployment": "lerna run typegen:for-post-deployment",
+    "lint": "npm run lint --workspace api",
+    "test": "npm run test --workspace api",
+    "post-deployment": "npm run post-deployment --workspace api",
+    "test:post-deployment": "npm run test:post-deployment --workspace api",
+    "typegen:for-post-deployment": "npm run typegen:for-post-deployment --workspace api",
     "postinstall": "./fix-module-resolution.sh"
   },
   "keywords": [],
@@ -18,7 +18,6 @@
     "api"
   ],
   "devDependencies": {
-    "@types/node": "^20.14.7",
-    "lerna": "^7.1.4"
+    "@types/node": "^25.3.0"
   }
 }
