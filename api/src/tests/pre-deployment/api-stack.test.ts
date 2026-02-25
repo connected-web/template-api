@@ -1,4 +1,4 @@
-import { describe, it, before } from 'mocha'
+import { beforeAll, describe, it } from 'vitest'
 
 import * as cdk from 'aws-cdk-lib'
 import { Template } from 'aws-cdk-lib/assertions'
@@ -32,7 +32,7 @@ const getTemplate = (): Template => {
 describe('REST API', () => {
   let template: Template
 
-  before(() => {
+  beforeAll(() => {
     template = getTemplate()
   })
 

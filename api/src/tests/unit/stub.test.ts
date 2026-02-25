@@ -1,10 +1,9 @@
-import { expect } from 'chai'
-import { describe, it } from 'mocha'
+import { describe, expect, it } from 'vitest'
 
 describe('stub', () => {
   it('should test units', () => {
     const actual = true
     const expected = true
-    expect(actual).to.equal(expected)
+    expect(actual).toBe(expected)
   })
 })

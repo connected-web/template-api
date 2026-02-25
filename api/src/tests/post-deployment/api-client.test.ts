@@ -1,5 +1,4 @@
-import { expect } from 'chai'
-import { describe, it, before } from 'mocha'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 import axios from 'axios'
 import OpenAPIClientAxios, { Document } from 'openapi-client-axios'
@@ -89,7 +88,7 @@ describe('Open API Spec', () => {
 
   console.log('Server:', { serverConfig })
 
-  before(async () => {
+  beforeAll(async () => {
     console.log('Implicit test: it should download the openapi spec for the App Store from /openapi')
     const oauthToken = await getOAuthToken()
     console.log('Received OAuth Token:', { oauthToken })
@@ -108,7 +107,7 @@ describe('Open API Spec', () => {
   describe('Open API Document', () => {
     it('should contain an info block with title and description', async () => {
       const { version, ...testableProps } = openapiDoc.info
-      expect(testableProps).to.deep.equal({
+      expect(testableProps).toEqual({
         title: 'Template API',
         description: 'Template API - https://github.com/connected-web/template-api'
       })
@@ -116,7 +115,7 @@ describe('Open API Spec', () => {
 
     it('should contain a list of paths', async () => {
       const pathStrings = Object.keys(openapiDoc.paths as any).sort()
-      expect(pathStrings).to.deep.equal([
+      expect(pathStrings).toEqual([
         '/',
         '/openapi',
         '/status'
@@ -129,16 +128,16 @@ describe('Open API Spec', () => {
       const axiosApi = new OpenAPIClientAxios({ definition: openapiDoc, axiosConfigDefaults: { headers: serverConfig.headers } })
       const appStoreClient = await axiosApi.getClient()
       const actualClientKeys = Object.keys(appStoreClient)
-      expect(actualClientKeys).to.include.members([
+      expect(actualClientKeys).toEqual(expect.arrayContaining([
         'getOpenAPISpec',
         'getStatus'
-      ])
+      ]))
     })
   })
 
   describe('Basic Client Endpoints with Cognito Based Authentication', () => {
     let appClient: ApiClientUnderTest
-    before(async () => {
+    beforeAll(async () => {
       const axiosApi = new OpenAPIClientAxios({
         definition: openapiDoc,
         axiosConfigDefaults: {
@@ -161,7 +160,7 @@ describe('Open API Spec', () => {
       console.log('Get Open API Spec:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
 
       ajv.validate({ $ref: 'app-openapi.json#/components/schemas/BasicObjectModel' }, response.data)
-      expect(ajv.errors ?? []).to.deep.equal([])
+      expect(ajv.errors ?? []).toEqual([])
     })
 
     it('should be possible to getStatus', async () => {
@@ -170,7 +169,7 @@ describe('Open API Spec', () => {
       console.log('Get Status:', response.status, response.statusText, JSON.stringify(response.data, null, 2))
 
       ajv.validate({ $ref: 'app-openapi.json#/components/schemas/BasicObjectModel' }, response.data)
-      expect(ajv.errors ?? []).to.deep.equal([])
+      expect(ajv.errors ?? []).toEqual([])
     })
   })
 })
