@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "repo": {
+    "id": "template-api",
+    "displayName": "Template API"
+  },
+  "service": {
+    "id": "template-service",
+    "displayName": "Template Service"
+  },
+  "product": {
+    "id": "template",
+    "displayName": "Template"
+  },
+  "owner": "platform-team",
+  "status": "active",
+  "components": [
+    {
+      "id": "template-api",
+      "displayName": "Template API",
+      "path": "api",
+      "type": "api-service",
+      "lifecycle": "deployable",
+      "publish": {
+        "kind": "cloudformation-stack",
+        "buildCommand": "npm --prefix api run cdk:synth",
+        "artifactPath": "api/cdk.out"
+      },
+      "deploy": {
+        "kind": "cloudformation-stack",
+        "stackNameTemplate": "CWEB-template-api-{instanceId}",
+        "templatePath": "TemplateApiStack.template.json",
+        "assemblyManifestPath": "manifest.json",
+        "assetManifestPath": "TemplateApiStack.assets.json",
+        "configSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        }
+      }
+    }
+  ]
+}

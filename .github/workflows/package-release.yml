@@ -1,0 +1,141 @@
+name: Package Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      account:
+        description: "Target AWS account alias"
+        required: true
+        type: choice
+        options:
+          - connected-web-dev
+          - connected-web-prod
+        default: connected-web-dev
+      version:
+        description: "Release version (without v prefix), required for manual runs"
+        required: false
+        type: string
+      instance_id:
+        description: "Deployment instance ID"
+        required: true
+        type: string
+        default: template-api
+      deploy_enabled:
+        description: "Deploy package after publish"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write
+
+jobs:
+  package-release:
+    name: Pack/Publish/Deploy release
+    runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
+      CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node JS LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          registry-url: https://npm.pkg.github.com
+          scope: '@connected-web'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install cweb CLI
+        run: npm install -g @connected-web/cweb
+
+      - name: Resolve account/profile
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            ACCOUNT="connected-web-prod"
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            ACCOUNT="${{ github.event.inputs.account }}"
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+
+          if [ -z "$VERSION" ]; then
+            echo "Release version is required for manual runs" >&2
+            exit 1
+          fi
+
+          case "$ACCOUNT" in
+            connected-web-dev)
+              PROFILE="dev"
+              ;;
+            connected-web-prod)
+              PROFILE="prod"
+              ;;
+            *)
+              echo "Unsupported account: $ACCOUNT" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "TARGET_ACCOUNT=$ACCOUNT" >> "$GITHUB_ENV"
+          echo "TARGET_PROFILE=$PROFILE" >> "$GITHUB_ENV"
+          echo "PACKAGE_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Read account config
+        working-directory: ./.github/workflows/scripts
+        run: sh ./setupGithubEnvironment.sh "$TARGET_ACCOUNT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-region: eu-west-2
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/ConnectedWebGithub-template-api
+          role-session-name: template-api-package-release
+          role-duration-seconds: 3600
+
+      - name: Resolve Cognito user pool id
+        run: |
+          set -euo pipefail
+          OAUTH_URL="$(jq -r '.identity.verifiers[0].oauthUrl // empty' <<<"$AWS_ACCOUNT_CONFIG")"
+          if [ -z "$OAUTH_URL" ]; then
+            echo "Unable to resolve identity.verifiers[0].oauthUrl from AWS_ACCOUNT_CONFIG" >&2
+            exit 1
+          fi
+
+          DOMAIN_PREFIX="$(sed -E 's#https?://([^./]+).*#\1#' <<<"$OAUTH_URL")"
+          USER_POOL_ID="$(aws cognito-idp describe-user-pool-domain --domain "$DOMAIN_PREFIX" --query 'DomainDescription.UserPoolId' --output text)"
+          if [ -z "$USER_POOL_ID" ] || [ "$USER_POOL_ID" = "None" ]; then
+            echo "Unable to resolve Cognito userPoolId for domain prefix $DOMAIN_PREFIX" >&2
+            exit 1
+          fi
+
+          echo "CWEB_USER_POOL_ID=$USER_POOL_ID" >> "$GITHUB_ENV"
+
+      - name: Login cweb machine identity
+        run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" --get-access-token --machine > /dev/null
+
+      - name: Pack template-api package
+        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" package pack --component template-api --version "$PACKAGE_VERSION"
+
+      - name: Publish template-api package
+        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" package publish --component template-api --version "$PACKAGE_VERSION"
+
+      - name: Deploy template-api package
+        if: ${{ github.event_name == 'push' || github.event.inputs.deploy_enabled == 'true' }}
+        run: |
+          cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" package deploy \
+            --host remote \
+            --component template-api \
+            --version "$PACKAGE_VERSION" \
+            --instance-id "${{ github.event.inputs.instance_id || 'template-api' }}"

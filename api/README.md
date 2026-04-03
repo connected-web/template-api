@@ -45,33 +45,4 @@ These environments are preconfigured with a Hosted Zone and SSL certificate and 
 
 ### Authentication
 
-By default, this stack uses AWS Cognito as a shared authentication service. The environment config have a section for `identity` containing a list of `verifiers` that are used to verify a standard JWT token passed in the `Authorization` header. The `verifiers` are used in order, and the first one to successfully verify the token will be used. For post-deployment tests the use of a preconfigured App Client ID and Client Secret is recommended to connect to the API.
-
-Alternatively, if you want to use header based authentication, you can use the `connected-web-dev-with-headers` profile. This profile expects custom headers to be passed in with each request. The required headers and their values can be configured in the `identity` section of the environment config. Below is an example configuration that requires specific headers and disallows certain headers in order to provide a basic level of security.
-
-```json
-{
-  "identity": {
-    "headerBasedAuthorization": {
-      "requiredHeadersWithAllowedValues": {
-        "Content-Type": ["application/json"],
-        "Accept": ["application/json"]
-      },
-      "requiredHeadersRegexValues": {
-        "User-Agent": "^[a-zA-Z0-9 .\\-_/]+$",
-        "X-Website-Authcode": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-      },
-      "disallowedHeaders": [
-        "Cookie",
-        "Set-Cookie",
-        "X-Forwarded-For"
-      ],
-      "disallowedHeaderRegexes": [
-        "^Proxy-.*$",
-        "^X-Real-IP$"
-      ]
-    }
-  }
-}
-```
-
+This stack uses AWS Cognito shared authentication only. The environment config must include `identity.verifiers` entries used to verify JWT access tokens from the shared authorizer.
