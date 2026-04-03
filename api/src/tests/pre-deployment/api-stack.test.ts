@@ -21,7 +21,9 @@ const getTemplate = (): Template => {
     subdomain: 'test-api',
     hostedZoneDomain: 'dummy.domain.name',
     identity: {
-      verifiers: []
+      userPoolId: 'eu-west-2_example',
+      userPoolClientId: 'example-client-id',
+      oauthUrl: 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com'
     }
   })
   const template = Template.fromStack(stack)

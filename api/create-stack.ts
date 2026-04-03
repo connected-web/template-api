@@ -2,7 +2,6 @@
 import 'source-map-support/register'
 import * as cdk from 'aws-cdk-lib'
 import { ApiStack } from './src/ApiStack'
-import { OpenAPIVerifiers } from '@connected-web/openapi-rest-api'
 
 const {
   ACCOUNT_PROFILE,
@@ -14,22 +13,19 @@ const {
 
 const accountProfile = ACCOUNT_PROFILE
 const raw = AWS_ACCOUNT_CONFIG ?? ''
-const accountConfig = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'))
+const accountConfig = raw === ''
+  ? {}
+  : JSON.parse(Buffer.from(raw, 'base64').toString('utf8'))
 const accountId = AWS_ACCOUNT_ID
-
-function resolveSharedVerifiers (): OpenAPIVerifiers {
-  const verifiers = accountConfig?.identity?.verifiers
-  if (Array.isArray(verifiers) && verifiers.length > 0) {
-    return verifiers as OpenAPIVerifiers
-  }
-  throw new Error('No shared identity verifiers configured. This stack requires Cognito shared authorizer verifiers.')
-}
 
 console.log('Account config:', { accountProfile, accountId, accountConfig })
 
 const app = new cdk.App()
-const stackName = accountConfig?.stackName ?? (() => { throw new Error('No stack name defined in account config') })()
+const stackName = accountConfig?.stackName ?? 'TemplateAPI'
 const subdomain = accountConfig?.subdomain ?? 'template-api'
+const firstVerifier = Array.isArray(accountConfig?.identity?.verifiers) && accountConfig.identity.verifiers.length > 0
+  ? accountConfig.identity.verifiers[0]
+  : {}
 
 const stackTemplate = new ApiStack(app, 'TemplateApiStack', {
   stackName,
@@ -40,9 +36,11 @@ const stackTemplate = new ApiStack(app, 'TemplateApiStack', {
 },
 {
   subdomain,
-  hostedZoneDomain: accountConfig.hostedZoneDomain,
+  hostedZoneDomain: accountConfig.hostedZoneDomain ?? 'dev.connected-web.services',
   identity: {
-    verifiers: resolveSharedVerifiers()
+    userPoolId: firstVerifier?.userPoolId ?? '',
+    userPoolClientId: firstVerifier?.clientId ?? '',
+    oauthUrl: firstVerifier?.oauthUrl ?? ''
   }
 })
 

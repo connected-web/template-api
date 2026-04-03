@@ -107,20 +107,37 @@ jobs:
       - name: Resolve Cognito user pool id
         run: |
           set -euo pipefail
-          OAUTH_URL="$(jq -r '.identity.verifiers[0].oauthUrl // empty' <<<"$AWS_ACCOUNT_CONFIG")"
-          if [ -z "$OAUTH_URL" ]; then
-            echo "Unable to resolve identity.verifiers[0].oauthUrl from AWS_ACCOUNT_CONFIG" >&2
-            exit 1
-          fi
-
-          DOMAIN_PREFIX="$(sed -E 's#https?://([^./]+).*#\1#' <<<"$OAUTH_URL")"
-          USER_POOL_ID="$(aws cognito-idp describe-user-pool-domain --domain "$DOMAIN_PREFIX" --query 'DomainDescription.UserPoolId' --output text)"
-          if [ -z "$USER_POOL_ID" ] || [ "$USER_POOL_ID" = "None" ]; then
-            echo "Unable to resolve Cognito userPoolId for domain prefix $DOMAIN_PREFIX" >&2
+          ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
+          USER_POOL_ID="$(jq -r '.identity.verifiers[0].userPoolId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+          if [ -z "$USER_POOL_ID" ]; then
+            echo "Unable to resolve identity.verifiers[0].userPoolId from AWS_ACCOUNT_CONFIG" >&2
             exit 1
           fi
 
           echo "CWEB_USER_POOL_ID=$USER_POOL_ID" >> "$GITHUB_ENV"
+
+      - name: Resolve deploy config
+        run: |
+          set -euo pipefail
+          ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
+          OAUTH_URL="$(jq -r '.identity.verifiers[0].oauthUrl // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+          USER_POOL_ID="$(jq -r '.identity.verifiers[0].userPoolId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+          CLIENT_ID="$(jq -r '.identity.verifiers[0].clientId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+          HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+
+          if [ -z "$OAUTH_URL" ] || [ -z "$USER_POOL_ID" ] || [ -z "$CLIENT_ID" ] || [ -z "$HOSTED_ZONE_DOMAIN" ]; then
+            echo "Unable to resolve deploy config values from AWS_ACCOUNT_CONFIG" >&2
+            exit 1
+          fi
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            DEPLOY_INSTANCE_ID="template-api"
+          else
+            DEPLOY_INSTANCE_ID="${{ github.event.inputs.instance_id }}"
+          fi
+
+          echo "DEPLOY_INSTANCE_ID=$DEPLOY_INSTANCE_ID" >> "$GITHUB_ENV"
+          echo "DEPLOY_CONFIG={\"Subdomain\":\"$DEPLOY_INSTANCE_ID\",\"HostedZoneDomain\":\"$HOSTED_ZONE_DOMAIN\",\"COGNITO_USER_POOL_ID\":\"$USER_POOL_ID\",\"COGNITO_USER_POOL_CLIENT_ID\":\"$CLIENT_ID\",\"IDENTITY_OAUTH_URL\":\"$OAUTH_URL\"}" >> "$GITHUB_ENV"
 
       - name: Login cweb machine identity
         run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" --get-access-token --machine > /dev/null
@@ -138,4 +155,5 @@ jobs:
             --host remote \
             --component template-api \
             --version "$PACKAGE_VERSION" \
-            --instance-id "${{ github.event.inputs.instance_id || 'template-api' }}"
+            --instance-id "$DEPLOY_INSTANCE_ID" \
+            --config "$DEPLOY_CONFIG"

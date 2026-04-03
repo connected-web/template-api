@@ -30,9 +30,14 @@ It is designed as simple, extremely cheap to host, but highly scalable API that 
 
 ### Deployment
 
-We recommend using [Github Actions](../.github/workflows/deploy-cdk-api.yml) to deploy this stack.
+Use package workflows to deploy through Connected Web Management API:
 
-This assumes you have already established a trust relationship between your Github account and your AWS account; or have created appropriate IAM credentials for the Github Action to use.
+- [Package pre-release](../.github/workflows/package-pre-release.yml)
+- [Package release](../.github/workflows/package-release.yml)
+
+Legacy direct OIDC deployment workflow still exists for fallback:
+
+- [Deploy CDK API](../.github/workflows/deploy-cdk-api.yml)
 
 ### Environments
 
@@ -45,4 +50,17 @@ These environments are preconfigured with a Hosted Zone and SSL certificate and 
 
 ### Authentication
 
-This stack uses AWS Cognito shared authentication only. The environment config must include `identity.verifiers` entries used to verify JWT access tokens from the shared authorizer.
+This stack uses AWS Cognito shared authentication only.
+
+The synthesized template declares deploy-time CloudFormation parameters for identity wiring:
+
+- `COGNITO_USER_POOL_ID`
+- `COGNITO_USER_POOL_CLIENT_ID`
+- `IDENTITY_OAUTH_URL`
+
+The template also expects deploy-time domain parameters:
+
+- `Subdomain`
+- `HostedZoneDomain`
+
+In package-based deployment these values are passed in the deployment config (`--config`), enabling a single artifact to be deployed to multiple instances/environments.

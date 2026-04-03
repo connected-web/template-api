@@ -36,7 +36,35 @@
           "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
           "additionalProperties": false,
-          "properties": {}
+          "required": [
+            "Subdomain",
+            "HostedZoneDomain",
+            "COGNITO_USER_POOL_ID",
+            "COGNITO_USER_POOL_CLIENT_ID",
+            "IDENTITY_OAUTH_URL"
+          ],
+          "properties": {
+            "Subdomain": {
+              "type": "string",
+              "minLength": 1
+            },
+            "HostedZoneDomain": {
+              "type": "string",
+              "minLength": 1
+            },
+            "COGNITO_USER_POOL_ID": {
+              "type": "string",
+              "minLength": 1
+            },
+            "COGNITO_USER_POOL_CLIENT_ID": {
+              "type": "string",
+              "minLength": 1
+            },
+            "IDENTITY_OAUTH_URL": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       }
     }
