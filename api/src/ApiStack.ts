@@ -40,6 +40,11 @@ export class ApiStack extends cdk.Stack {
   constructor (scope: Construct, id: string, props: cdk.StackProps, config: StackParameters) {
     super(scope, id, props)
 
+    const identityAuthorizerArnParameter = new cdk.CfnParameter(this, 'IDENTITY_AUTHORIZER_ARN', {
+      type: 'String',
+      default: config.identity.authorizerArn
+    })
+
     // Create shared resources
     const sharedResources = new Resources(scope, this, config)
 
@@ -48,7 +53,7 @@ export class ApiStack extends cdk.Stack {
       Description: 'Template API - https://github.com/connected-web/template-api',
       SubDomain: config.subdomain,
       HostedZoneDomain: config.hostedZoneDomain,
-      AuthorizerARN: config.identity.authorizerArn,
+      AuthorizerARN: identityAuthorizerArnParameter.valueAsString,
       Verifiers: []
     }, sharedResources)
 
