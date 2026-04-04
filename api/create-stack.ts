@@ -8,7 +8,8 @@ const {
   AWS_ACCOUNT_CONFIG,
   AWS_ACCOUNT_ID,
   CDK_DEFAULT_ACCOUNT,
-  CDK_DEFAULT_REGION
+  CDK_DEFAULT_REGION,
+  DEPLOY_CONFIG
 } = process.env
 
 const accountProfile = ACCOUNT_PROFILE
@@ -24,13 +25,27 @@ const parseAccountConfig = (value: string): Record<string, any> => {
   return JSON.parse(Buffer.from(value, 'base64').toString('utf8'))
 }
 const accountConfig = parseAccountConfig(raw)
+const deployConfig = parseAccountConfig(DEPLOY_CONFIG ?? '')
+const mergedConfig = {
+  ...accountConfig,
+  ...deployConfig,
+  identity: {
+    ...(accountConfig?.identity ?? {}),
+    ...(deployConfig?.identity ?? {}),
+    authorizerArn:
+      deployConfig?.IDENTITY_AUTHORIZER_ARN ??
+      deployConfig?.identity?.authorizerArn ??
+      accountConfig?.identity?.authorizerArn ??
+      ''
+  }
+}
 const accountId = AWS_ACCOUNT_ID
 
-console.log('Account config:', { accountProfile, accountId, accountConfig })
+console.log('Account config:', { accountProfile, accountId, accountConfig: mergedConfig })
 
 const app = new cdk.App()
-const stackName = accountConfig?.stackName ?? 'TemplateAPI'
-const subdomain = accountConfig?.subdomain ?? 'template-api'
+const stackName = mergedConfig?.stackName ?? 'TemplateAPI'
+const subdomain = mergedConfig?.subdomain ?? mergedConfig?.Subdomain ?? 'template-api'
 
 const stackTemplate = new ApiStack(app, 'TemplateApiStack', {
   stackName,
@@ -41,9 +56,9 @@ const stackTemplate = new ApiStack(app, 'TemplateApiStack', {
 },
 {
   subdomain,
-  hostedZoneDomain: accountConfig.hostedZoneDomain ?? 'dev.connected-web.services',
+  hostedZoneDomain: mergedConfig.hostedZoneDomain ?? mergedConfig.HostedZoneDomain ?? 'dev.connected-web.services',
   identity: {
-    authorizerArn: accountConfig?.identity?.authorizerArn ?? ''
+    authorizerArn: mergedConfig?.identity?.authorizerArn ?? ''
   }
 })
 

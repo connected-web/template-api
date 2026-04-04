@@ -40,28 +40,15 @@ export class ApiStack extends cdk.Stack {
   constructor (scope: Construct, id: string, props: cdk.StackProps, config: StackParameters) {
     super(scope, id, props)
 
-    const subdomainParameter = new cdk.CfnParameter(this, 'Subdomain', {
-      type: 'String',
-      default: config.subdomain
-    })
-    const hostedZoneDomainParameter = new cdk.CfnParameter(this, 'HostedZoneDomain', {
-      type: 'String',
-      default: config.hostedZoneDomain
-    })
-    const identityAuthorizerArnParameter = new cdk.CfnParameter(this, 'IDENTITY_AUTHORIZER_ARN', {
-      type: 'String',
-      default: config.identity.authorizerArn
-    })
-
     // Create shared resources
     const sharedResources = new Resources(scope, this, config)
 
     // Create API Gateway
     const apiGateway = new OpenAPIRestAPI<Resources>(this, 'Template API', {
       Description: 'Template API - https://github.com/connected-web/template-api',
-      SubDomain: subdomainParameter.valueAsString,
-      HostedZoneDomain: hostedZoneDomainParameter.valueAsString,
-      AuthorizerARN: identityAuthorizerArnParameter.valueAsString,
+      SubDomain: config.subdomain,
+      HostedZoneDomain: config.hostedZoneDomain,
+      AuthorizerARN: config.identity.authorizerArn,
       Verifiers: []
     }, sharedResources)
 
