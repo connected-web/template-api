@@ -103,7 +103,28 @@ export class ApiStack extends cdk.Stack {
       recordName: vanityDomain,
       ttl: cdk.Duration.minutes(5)
     })
-    const stackOutputs = [apiCnameRecord, authorizerInvokePermission]
+
+    const apiBaseUrl = `https://${vanityDomain}`
+    const apiOutputs = [
+      new cdk.CfnOutput(this, 'ApiBaseUrl', {
+        value: apiBaseUrl,
+        description: 'Custom-domain API base URL for consumers'
+      }),
+      new cdk.CfnOutput(this, 'OpenAPISpecEndpoint', {
+        value: `${apiBaseUrl}/openapi`,
+        description: 'Custom-domain OpenAPI endpoint'
+      }),
+      new cdk.CfnOutput(this, 'StatusEndpoint', {
+        value: `${apiBaseUrl}/status`,
+        description: 'Custom-domain status endpoint'
+      }),
+      new cdk.CfnOutput(this, 'ApiGatewayEndpoint', {
+        value: apiGateway.restApi.url,
+        description: 'Execute API endpoint (debug)'
+      })
+    ]
+
+    const stackOutputs = [apiCnameRecord, authorizerInvokePermission, ...apiOutputs]
     console.log('Created stack outputs:', stackOutputs.length)
 
     // Kick of dependency injection for shared models and model factory
