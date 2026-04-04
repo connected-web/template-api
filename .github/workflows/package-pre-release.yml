@@ -91,13 +91,31 @@ jobs:
           else
             ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
           fi
-          AUTHORIZER_ARN="$(jq -r '.identity.authorizerArn // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+          AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
           HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$ACCOUNT_CONFIG_JSON")"
           HOSTED_ZONE_ID="$(jq -r '.hostedZoneId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
 
+          if [ -n "${MANAGEMENT_AWS_ACCOUNT_CONFIG:-}" ]; then
+            MANAGEMENT_CONFIG_JSON="$(echo "$MANAGEMENT_AWS_ACCOUNT_CONFIG" | base64 -d)"
+            if [ -z "$HOSTED_ZONE_DOMAIN" ]; then
+              HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$MANAGEMENT_CONFIG_JSON")"
+            fi
+            if [ -z "$HOSTED_ZONE_ID" ]; then
+              HOSTED_ZONE_ID="$(jq -r '.hostedZoneId // empty' <<<"$MANAGEMENT_CONFIG_JSON")"
+            fi
+          fi
+
+          if [ -z "$HOSTED_ZONE_DOMAIN" ]; then
+            PREFIX="$(jq -r '.prefix // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+            PARENT_ZONE="$(jq -r '.parentZone // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+            if [ -n "$PREFIX" ] && [ -n "$PARENT_ZONE" ]; then
+              HOSTED_ZONE_DOMAIN="$PREFIX.$PARENT_ZONE"
+            fi
+          fi
+
           if [ -z "$HOSTED_ZONE_DOMAIN" ] || [ -z "$AUTHORIZER_ARN" ]; then
             echo "Unable to resolve required deploy config values (HostedZoneDomain / identity.authorizerArn)." >&2
-            echo "Set identity.authorizerArn in .github/workflows/accounts/${{ github.event.inputs.account }}.json." >&2
+            echo "Expected cweb configure to provide IDENTITY_AUTHORIZER_ARN and hosted zone metadata." >&2
             exit 1
           fi
 
