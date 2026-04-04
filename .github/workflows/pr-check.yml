@@ -128,6 +128,7 @@ jobs:
             }
             + (if ($hostedZoneId | length) > 0 then { HostedZoneId: $hostedZoneId } else {} end)')"
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
+          echo "DEPLOY_BASE_URL=https://${TARGET_INSTANCE_ID}.${HOSTED_ZONE_DOMAIN}" >> "$GITHUB_ENV"
 
       - name: Pack template-api package
         run: cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package pack --component template-api --version "$PACKAGE_VERSION"
@@ -152,7 +153,44 @@ jobs:
             exit 1
           fi
 
+          echo "DEPLOY_ITEM_ID=$DEPLOY_ITEM_ID" >> "$GITHUB_ENV"
           cweb -p "$TARGET_PROFILE" deployments watch --item-id "$DEPLOY_ITEM_ID"
+
+      - name: Validate deployment outputs from Management API
+        run: |
+          set -euo pipefail
+
+          DEPLOYMENT_JSON="$(cweb -p "$TARGET_PROFILE" deployments describe --item-id "$DEPLOY_ITEM_ID")"
+          echo "$DEPLOYMENT_JSON"
+
+          EXPECTED_BASE_URL="$DEPLOY_BASE_URL"
+          EXPECTED_OPENAPI_URL="${EXPECTED_BASE_URL}/openapi"
+          EXPECTED_STATUS_URL="${EXPECTED_BASE_URL}/status"
+
+          ACTUAL_BASE_URL="$(jq -r '.deployment.outputs.ApiBaseUrl // empty' <<<"$DEPLOYMENT_JSON")"
+          ACTUAL_OPENAPI_URL="$(jq -r '.deployment.outputs.OpenAPISpecEndpoint // empty' <<<"$DEPLOYMENT_JSON")"
+          ACTUAL_STATUS_URL="$(jq -r '.deployment.outputs.StatusEndpoint // empty' <<<"$DEPLOYMENT_JSON")"
+          ACTUAL_GATEWAY_URL="$(jq -r '.deployment.outputs.ApiGatewayEndpoint // empty' <<<"$DEPLOYMENT_JSON")"
+
+          if [ "$ACTUAL_BASE_URL" != "$EXPECTED_BASE_URL" ]; then
+            echo "ApiBaseUrl mismatch: expected '$EXPECTED_BASE_URL', got '$ACTUAL_BASE_URL'" >&2
+            exit 1
+          fi
+
+          if [ "$ACTUAL_OPENAPI_URL" != "$EXPECTED_OPENAPI_URL" ]; then
+            echo "OpenAPISpecEndpoint mismatch: expected '$EXPECTED_OPENAPI_URL', got '$ACTUAL_OPENAPI_URL'" >&2
+            exit 1
+          fi
+
+          if [ "$ACTUAL_STATUS_URL" != "$EXPECTED_STATUS_URL" ]; then
+            echo "StatusEndpoint mismatch: expected '$EXPECTED_STATUS_URL', got '$ACTUAL_STATUS_URL'" >&2
+            exit 1
+          fi
+
+          if [ -z "$ACTUAL_GATEWAY_URL" ]; then
+            echo "ApiGatewayEndpoint output is empty" >&2
+            exit 1
+          fi
 
   post-deployment-tests:
     name: Post-deployment Tests for API
