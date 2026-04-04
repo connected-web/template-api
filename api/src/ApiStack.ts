@@ -94,7 +94,8 @@ export class ApiStack extends cdk.Stack {
       recordName: vanityDomain,
       ttl: cdk.Duration.minutes(5)
     })
-    void apiCnameRecord
+    const stackOutputs = [apiCnameRecord]
+    console.log('Created stack outputs:', stackOutputs.length)
 
     // Kick of dependency injection for shared models and model factory
     OpenAPIBasicModels.setup(this, apiGateway.restApi)
