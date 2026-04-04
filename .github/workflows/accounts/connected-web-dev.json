@@ -7,6 +7,7 @@
   "prefix": "dev",
   "hostedZoneDomain": "dev.connected-web.services",
   "identity": {
+    "oauthUrl": "https://connected-web-dev.auth.eu-west-2.amazoncognito.com",
     "verifiers": [{
       "name": "Users Dev",
       "userPoolId": "eu-west-2_VBRbzaly6",
@@ -22,4 +23,3 @@
     }]
   }
 }
-
