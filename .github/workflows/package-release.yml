@@ -1,38 +1,41 @@
-name: Check PR
+name: Package Release
+
 on:
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
+    inputs:
+      account:
+        description: "Target AWS account alias"
+        required: true
+        type: choice
+        options:
+          - connected-web-dev
+          - connected-web-prod
+        default: connected-web-dev
+      version:
+        description: "Release version (without v prefix), required for manual runs"
+        required: false
+        type: string
+      instance_id:
+        description: "Deployment instance ID"
+        required: true
+        type: string
+        default: template-api
+      deploy_enabled:
+        description: "Deploy package after publish"
+        required: true
+        type: boolean
+        default: true
 
 permissions:
-  contents: write
-  packages: write
-  pull-requests: write
+  contents: read
+  packages: read
 
 jobs:
-  test-cdk-api:
-    name: Test CDK API
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Use Node JS LTS
-        uses: actions/setup-node@v5
-        with:
-          node-version: 20.x
-
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm run test
-
-  package-deploy-dev:
-    name: Package Deploy (dev)
-    needs: ['test-cdk-api']
+  package-release:
+    name: Pack/Publish/Deploy release
     runs-on: ubuntu-latest
     environment: dev
     env:
@@ -40,9 +43,6 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
-      TARGET_ACCOUNT: connected-web-dev
-      TARGET_PROFILE: dev
-      TARGET_INSTANCE_ID: template-api
 
     steps:
       - name: Checkout
@@ -61,18 +61,37 @@ jobs:
       - name: Install cweb CLI
         run: npm install -g @connected-web/cweb
 
-      - name: Verify machine credentials are configured
+      - name: Resolve account/profile
         run: |
-          set -euo pipefail
-          if [ -z "${CWEB_CLIENT_ID:-}" ] || [ -z "${CWEB_CLIENT_SECRET:-}" ]; then
-            echo "Missing CWEB_CLIENT_ID/CWEB_CLIENT_SECRET for CI machine login." >&2
-            echo "Bootstrap once from an operator workstation, then set GitHub secrets." >&2
-            echo "Example: cweb repo bootstrap -p dev --org connected-web --repo template-api --env dev" >&2
+          if [ "${{ github.event_name }}" = "push" ]; then
+            ACCOUNT="connected-web-dev"
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            ACCOUNT="${{ github.event.inputs.account }}"
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+
+          if [ -z "$VERSION" ]; then
+            echo "Release version is required for manual runs" >&2
             exit 1
           fi
 
-      - name: Resolve pre-release package version
-        run: echo "PACKAGE_VERSION=0.0.0-pr.${{ github.event.pull_request.number || github.run_number }}.${{ github.run_attempt }}" >> "$GITHUB_ENV"
+          case "$ACCOUNT" in
+            connected-web-dev)
+              PROFILE="dev"
+              ;;
+            connected-web-prod)
+              PROFILE="prod"
+              ;;
+            *)
+              echo "Unsupported account: $ACCOUNT" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "TARGET_ACCOUNT=$ACCOUNT" >> "$GITHUB_ENV"
+          echo "TARGET_PROFILE=$PROFILE" >> "$GITHUB_ENV"
+          echo "PACKAGE_VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Resolve account config from cweb profile
         run: cweb configure -p "$TARGET_PROFILE" --write-github-env
@@ -116,8 +135,14 @@ jobs:
             exit 1
           fi
 
+          if [ "${{ github.event_name }}" = "push" ]; then
+            DEPLOY_INSTANCE_ID="template-api"
+          else
+            DEPLOY_INSTANCE_ID="${{ github.event.inputs.instance_id }}"
+          fi
+
           DEPLOY_CONFIG_JSON="$(jq -cn \
-            --arg subdomain "$TARGET_INSTANCE_ID" \
+            --arg subdomain "$DEPLOY_INSTANCE_ID" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
             --arg hostedZoneId "$HOSTED_ZONE_ID" \
             --arg authorizerArn "$AUTHORIZER_ARN" \
@@ -127,6 +152,7 @@ jobs:
               IDENTITY_AUTHORIZER_ARN: $authorizerArn
             }
             + (if ($hostedZoneId | length) > 0 then { HostedZoneId: $hostedZoneId } else {} end)')"
+          echo "DEPLOY_INSTANCE_ID=$DEPLOY_INSTANCE_ID" >> "$GITHUB_ENV"
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
 
       - name: Pack template-api package
@@ -136,55 +162,11 @@ jobs:
         run: cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package publish --component template-api --version "$PACKAGE_VERSION"
 
       - name: Deploy template-api package
+        if: ${{ github.event_name == 'push' || github.event.inputs.deploy_enabled == 'true' }}
         run: |
-          set -euo pipefail
-          DEPLOY_OUTPUT="$(cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package deploy \
+          cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package deploy \
             --host remote \
             --component template-api \
             --version "$PACKAGE_VERSION" \
-            --instance-id "$TARGET_INSTANCE_ID" \
-            --config "$DEPLOY_CONFIG")"
-
-          echo "$DEPLOY_OUTPUT"
-          DEPLOY_ITEM_ID="$(printf '%s\n' "$DEPLOY_OUTPUT" | sed -n "s/^Item ID: //p" | tail -n1)"
-          if [ -z "$DEPLOY_ITEM_ID" ]; then
-            echo "Failed to parse deployment item id from cweb output." >&2
-            exit 1
-          fi
-
-          cweb -p "$TARGET_PROFILE" deployments watch --item-id "$DEPLOY_ITEM_ID"
-
-  post-deployment-tests:
-    name: Post-deployment Tests for API
-    needs: ['package-deploy-dev']
-    runs-on: ubuntu-latest
-    environment: dev
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Use Node JS LTS
-        uses: actions/setup-node@v5
-        with:
-          node-version: 20.x
-
-      - name: Install npm dependencies (api)
-        run: npm install
-        working-directory: ./api
-
-      - name: Run post-deployment smoke test
-        run: npm run test:post-deployment
-        working-directory: ./api
-        env:
-          POST_DEPLOYMENT_SERVER_DOMAIN: https://template-api.dev.connected-web.services
-          POST_DEPLOYMENT_SMOKE_ONLY: "true"
-
-  publish-npm-client:
-    name: Publish NPM Client
-    needs: ['post-deployment-tests']
-    uses: ./.github/workflows/publish-npm-client.yml
-    with:
-      environment-name: dev
-      oauth-token-endpoint: https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token
-      openapi-spec-url: https://template-api.dev.connected-web.services/openapi
-    secrets: inherit
+            --instance-id "$DEPLOY_INSTANCE_ID" \
+            --config "$DEPLOY_CONFIG"

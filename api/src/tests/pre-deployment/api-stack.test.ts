@@ -21,7 +21,7 @@ const getTemplate = (): Template => {
     subdomain: 'test-api',
     hostedZoneDomain: 'dummy.domain.name',
     identity: {
-      verifiers: []
+      authorizerArn: 'arn:aws:lambda:eu-west-2:1234567890:function:SharedAuthorizer'
     }
   })
   const template = Template.fromStack(stack)

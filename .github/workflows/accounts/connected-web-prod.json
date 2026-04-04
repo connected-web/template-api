@@ -7,6 +7,8 @@
   "prefix": "",
   "hostedZoneDomain": "prod.connected-web.services",
   "identity": {
+    "authorizerArn": "arn:aws:lambda:eu-west-2:794722618463:function:CWEB-management-api-manag-ManagedIdentityAuthorize-ibW9ZdRWnkJb",
+    "oauthUrl": "https://connected-web.auth.eu-west-2.amazoncognito.com",
     "verifiers": [{
       "name": "Users Prod",
       "userPoolId": "eu-west-2_rt9QhO9KA",

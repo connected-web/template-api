@@ -8,21 +8,49 @@ const {
   AWS_ACCOUNT_CONFIG,
   AWS_ACCOUNT_ID,
   CDK_DEFAULT_ACCOUNT,
-  CDK_DEFAULT_REGION
+  CDK_DEFAULT_REGION,
+  DEPLOY_CONFIG
 } = process.env
 
 const accountProfile = ACCOUNT_PROFILE
 const raw = AWS_ACCOUNT_CONFIG ?? ''
-const accountConfig = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'))
+const parseAccountConfig = (value: string): Record<string, any> => {
+  if (value === '') return {}
+
+  const trimmed = value.trim()
+  if (trimmed.startsWith('{')) {
+    return JSON.parse(trimmed)
+  }
+
+  return JSON.parse(Buffer.from(value, 'base64').toString('utf8'))
+}
+const accountConfig = parseAccountConfig(raw)
+const deployConfig = parseAccountConfig(DEPLOY_CONFIG ?? '')
+const mergedConfig: Record<string, any> = {
+  ...accountConfig,
+  ...deployConfig,
+  identity: {
+    ...(accountConfig?.identity ?? {}),
+    ...(deployConfig?.identity ?? {}),
+    authorizerArn:
+      deployConfig?.IDENTITY_AUTHORIZER_ARN ??
+      deployConfig?.IDENTITYAUTHORIZERARN ??
+      deployConfig?.IdentityAuthorizerArn ??
+      deployConfig?.identity?.authorizerArn ??
+      accountConfig?.identity?.authorizerArn ??
+      ''
+  }
+}
 const accountId = AWS_ACCOUNT_ID
 
-console.log('Account config:', { accountProfile, accountId, accountConfig })
+console.log('Account config:', { accountProfile, accountId, accountConfig: mergedConfig })
 
 const app = new cdk.App()
-const stackName = accountConfig?.stackName ?? (() => { throw new Error('No stack name defined in account config') })()
-const subdomain = accountConfig?.subdomain ?? 'template-api'
+const stackName = mergedConfig?.stackName ?? 'TemplateAPI'
+const subdomain = mergedConfig?.subdomain ?? mergedConfig?.Subdomain ?? 'template-api'
 
-const stackTemplate = new ApiStack(app, stackName, {
+const stackTemplate = new ApiStack(app, 'TemplateApiStack', {
+  stackName,
   env: {
     account: CDK_DEFAULT_ACCOUNT ?? '123456789012',
     region: CDK_DEFAULT_REGION ?? 'eu-west-2'
@@ -30,8 +58,11 @@ const stackTemplate = new ApiStack(app, stackName, {
 },
 {
   subdomain,
-  hostedZoneDomain: accountConfig.hostedZoneDomain,
-  identity: accountConfig.identity
+  hostedZoneDomain: mergedConfig.hostedZoneDomain ?? mergedConfig.HostedZoneDomain ?? 'dev.connected-web.services',
+  hostedZoneId: mergedConfig.hostedZoneId ?? mergedConfig.HostedZoneId ?? '',
+  identity: {
+    authorizerArn: mergedConfig?.identity?.authorizerArn ?? ''
+  }
 })
 
 console.log('Created stack', stackTemplate.stackName)

@@ -7,6 +7,8 @@
   "prefix": "dev",
   "hostedZoneDomain": "dev.connected-web.services",
   "identity": {
+    "authorizerArn": "arn:aws:lambda:eu-west-2:807726400201:function:CWEB-management-api-manag-ManagedIdentityAuthorize-F8oxeIR3A6Og",
+    "oauthUrl": "https://connected-web-dev.auth.eu-west-2.amazoncognito.com",
     "verifiers": [{
       "name": "Users Dev",
       "userPoolId": "eu-west-2_VBRbzaly6",
@@ -22,4 +24,3 @@
     }]
   }
 }
-

@@ -2,6 +2,19 @@ name: Publish API Client
 
 on:
   workflow_call:
+    inputs:
+      openapi-spec-url:
+        required: false
+        type: string
+        default: https://template-api.dev.connected-web.services/openapi
+      environment-name:
+        required: false
+        type: string
+        default: dev
+      oauth-token-endpoint:
+        required: false
+        type: string
+        default: https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token
   workflow_dispatch:
   release:
     types:
@@ -15,22 +28,29 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment-name || 'dev' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
 
       - name: Determine version
         id: version
         run: |
           if [ -n "${{ github.event.pull_request }}" ]; then
             echo "Using 0.0.0-branch+gitref as the version for a PR"
-            echo "version=0.0.0-${{ github.head_ref }}-${{ github.sha }}" >> $GITHUB_OUTPUT
+            SAFE_REF="${{ github.head_ref }}"
+            SAFE_REF="${SAFE_REF//\//-}"
+            echo "version=0.0.0-${SAFE_REF}-${{ github.sha }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.release.prerelease }}" == "true" ]; then
             echo "Using the tag name for prerelease"
-            echo "version=${{ github.event.release.tag_name }}-RC${{ github.run_number }}" >> $GITHUB_OUTPUT
+            TAG="${{ github.event.release.tag_name }}"
+            TAG="${TAG#v}"
+            echo "version=${TAG}-rc.${{ github.run_number }}" >> $GITHUB_OUTPUT
           else
             echo "Using the tag name for release"
-            echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+            TAG="${{ github.event.release.tag_name }}"
+            TAG="${TAG#v}"
+            echo "version=${TAG}" >> $GITHUB_OUTPUT
           fi
         shell: bash
 
@@ -38,10 +58,10 @@ jobs:
         uses: connected-web/pnpfos@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          client-id: ${{ secrets.POST_DEPLOYMENT_CLIENT_ID }}
-          client-secret: ${{ secrets.POST_DEPLOYMENT_CLIENT_SECRET }}
-          oauth-token-endpoint: 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token'
+          client-id: ${{ secrets.CWEB_CLIENT_ID }}
+          client-secret: ${{ secrets.CWEB_CLIENT_SECRET }}
+          oauth-token-endpoint: ${{ inputs.oauth-token-endpoint || 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token' }}
           package-id: '@connected-web/template-api-client'
           # openapi-spec-file: 'src/post-deployment/openapi-spec.json'
-          openapi-spec-url: 'https://template-api.dev.connected-web.services/openapi'
+          openapi-spec-url: ${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}
           version: ${{ steps.version.outputs.version }}

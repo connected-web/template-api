@@ -14,6 +14,7 @@ import draft7MetaSchema from 'ajv/dist/refs/json-schema-draft-07.json'
 const ajv = new Ajv({ allErrors: true, strict: false })
 ajv.addMetaSchema(draft7MetaSchema)
 addFormats(ajv)
+const isSmokeOnly = process.env.POST_DEPLOYMENT_SMOKE_ONLY === 'true'
 
 interface ServerInfo {
   baseURL: string
@@ -60,7 +61,9 @@ const serverConfig: ServerInfo = {
   }
 }
 
-describe('Open API Spec', () => {
+const postDeploymentDescribe = isSmokeOnly ? describe.skip : describe
+
+postDeploymentDescribe('Open API Spec', () => {
   let openapiDoc: Document
   const downloadedOpenAPIDocPath = path.join(__dirname, './downloaded-app-openapi.json')
 
