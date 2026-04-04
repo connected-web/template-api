@@ -127,12 +127,22 @@ jobs:
 
       - name: Deploy template-api package
         run: |
-          cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" package deploy \
+          set -euo pipefail
+          DEPLOY_OUTPUT="$(cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" package deploy \
             --host remote \
             --component template-api \
             --version "$PACKAGE_VERSION" \
             --instance-id "$TARGET_INSTANCE_ID" \
-            --config "$DEPLOY_CONFIG"
+            --config "$DEPLOY_CONFIG")"
+
+          echo "$DEPLOY_OUTPUT"
+          DEPLOY_ITEM_ID="$(printf '%s\n' "$DEPLOY_OUTPUT" | sed -n "s/^Item ID: //p" | tail -n1)"
+          if [ -z "$DEPLOY_ITEM_ID" ]; then
+            echo "Failed to parse deployment item id from cweb output." >&2
+            exit 1
+          fi
+
+          cweb -p "$TARGET_PROFILE" deployments watch --item-id "$DEPLOY_ITEM_ID"
 
   post-deployment-tests:
     name: Post-deployment Tests for API
@@ -148,21 +158,12 @@ jobs:
         with:
           node-version: 20.x
 
-      - name: Install npm dependencies (root)
-        run: npm ci
-
-      - name: Install npm dependencies (api)
-        run: npm install
-        working-directory: ./api
-
-      - name: Run post-deployment tests
-        working-directory: ./api
+      - name: Run post-deployment smoke test
         run: npm run test:post-deployment
+        working-directory: ./api
         env:
           POST_DEPLOYMENT_SERVER_DOMAIN: https://test-db.dev.connected-web.services
-          POST_DEPLOYMENT_AUTH_URL: https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token
-          POST_DEPLOYMENT_CLIENT_ID: ${{ secrets.POST_DEPLOYMENT_CLIENT_ID }}
-          POST_DEPLOYMENT_CLIENT_SECRET: ${{ secrets.POST_DEPLOYMENT_CLIENT_SECRET }}
+          POST_DEPLOYMENT_SMOKE_ONLY: "true"
 
   publish-npm-client:
     name: Publish NPM Client

@@ -16,6 +16,7 @@ ajv.addMetaSchema(draft7MetaSchema)
 addFormats(ajv)
 
 const {
+  POST_DEPLOYMENT_SMOKE_ONLY,
   POST_DEPLOYMENT_SERVER_DOMAIN,
   POST_DEPLOYMENT_AUTH_URL,
   POST_DEPLOYMENT_CLIENT_ID,
@@ -25,6 +26,8 @@ const {
   CONNECTED_WEB_PROD_SSO_CLIENT_ID,
   CONNECTED_WEB_PROD_SSO_SECRET
 } = process.env
+
+const isSmokeOnly = POST_DEPLOYMENT_SMOKE_ONLY === 'true'
 
 interface ServerInfo {
   baseURL: string
@@ -82,7 +85,9 @@ async function getOAuthToken (): Promise<string> {
   return tokenResponse?.data?.access_token ?? 'not-set'
 }
 
-describe('Open API Spec', () => {
+const postDeploymentDescribe = isSmokeOnly ? describe.skip : describe
+
+postDeploymentDescribe('Open API Spec', () => {
   let openapiDoc: Document
   const downloadedOpenAPIDocPath = path.join(__dirname, './downloaded-app-openapi.json')
 
