@@ -102,7 +102,11 @@ jobs:
       - name: Resolve deploy config
         run: |
           set -euo pipefail
-          ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
+          if jq -e . >/dev/null 2>&1 <<<"$AWS_ACCOUNT_CONFIG"; then
+            ACCOUNT_CONFIG_JSON="$AWS_ACCOUNT_CONFIG"
+          else
+            ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
+          fi
           AUTHORIZER_ARN="$(jq -r '.identity.authorizerArn // empty' <<<"$ACCOUNT_CONFIG_JSON")"
           HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$ACCOUNT_CONFIG_JSON")"
           HOSTED_ZONE_ID="$(jq -r '.hostedZoneId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
