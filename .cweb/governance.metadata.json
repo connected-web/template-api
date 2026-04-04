@@ -39,9 +39,7 @@
           "required": [
             "Subdomain",
             "HostedZoneDomain",
-            "COGNITO_USER_POOL_ID",
-            "COGNITO_USER_POOL_CLIENT_ID",
-            "IDENTITY_OAUTH_URL"
+            "IDENTITY_AUTHORIZER_ARN"
           ],
           "properties": {
             "Subdomain": {
@@ -52,15 +50,7 @@
               "type": "string",
               "minLength": 1
             },
-            "COGNITO_USER_POOL_ID": {
-              "type": "string",
-              "minLength": 1
-            },
-            "COGNITO_USER_POOL_CLIENT_ID": {
-              "type": "string",
-              "minLength": 1
-            },
-            "IDENTITY_OAUTH_URL": {
+            "IDENTITY_AUTHORIZER_ARN": {
               "type": "string",
               "minLength": 1
             }

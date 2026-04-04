@@ -23,9 +23,6 @@ console.log('Account config:', { accountProfile, accountId, accountConfig })
 const app = new cdk.App()
 const stackName = accountConfig?.stackName ?? 'TemplateAPI'
 const subdomain = accountConfig?.subdomain ?? 'template-api'
-const firstVerifier = Array.isArray(accountConfig?.identity?.verifiers) && accountConfig.identity.verifiers.length > 0
-  ? accountConfig.identity.verifiers[0]
-  : {}
 
 const stackTemplate = new ApiStack(app, 'TemplateApiStack', {
   stackName,
@@ -38,9 +35,7 @@ const stackTemplate = new ApiStack(app, 'TemplateApiStack', {
   subdomain,
   hostedZoneDomain: accountConfig.hostedZoneDomain ?? 'dev.connected-web.services',
   identity: {
-    userPoolId: firstVerifier?.userPoolId ?? '',
-    userPoolClientId: firstVerifier?.clientId ?? '',
-    oauthUrl: firstVerifier?.oauthUrl ?? ''
+    authorizerArn: accountConfig?.identity?.authorizerArn ?? ''
   }
 })
 

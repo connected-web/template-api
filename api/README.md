@@ -52,15 +52,13 @@ These environments are preconfigured with a Hosted Zone and SSL certificate and 
 
 This stack uses AWS Cognito shared authentication only.
 
-The synthesized template declares deploy-time CloudFormation parameters for identity wiring:
+The synthesized template declares deploy-time CloudFormation parameters for shared authorizer wiring:
 
-- `COGNITO_USER_POOL_ID`
-- `COGNITO_USER_POOL_CLIENT_ID`
-- `IDENTITY_OAUTH_URL`
+- `IDENTITY_AUTHORIZER_ARN`
 
 The template also expects deploy-time domain parameters:
 
 - `Subdomain`
 - `HostedZoneDomain`
 
-In package-based deployment these values are passed in the deployment config (`--config`), enabling a single artifact to be deployed to multiple instances/environments.
+In package-based deployment these values are passed in the deployment config (`--config`). `IDENTITY_AUTHORIZER_ARN` should come from management build context (`cweb configure --write-github-env`) or equivalent management-api injection.

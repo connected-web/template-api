@@ -1,16 +1,14 @@
 import * as cdk from 'aws-cdk-lib'
 
 import { Construct } from 'constructs'
-import { OpenAPIRestAPI, OpenAPIVerifiers, OpenAPIBasicModels } from '@connected-web/openapi-rest-api'
+import { OpenAPIRestAPI, OpenAPIBasicModels } from '@connected-web/openapi-rest-api'
 
 import { Resources } from './Resources'
 import { StatusEndpoint } from './endpoints/Status/metadata'
 import { OpenAPISpecEndpoint } from './endpoints/OpenAPISpec/metadata'
 
 export interface IdentityConfig {
-  userPoolId: string
-  userPoolClientId: string
-  oauthUrl: string
+  authorizerArn: string
 }
 
 export interface StackParameters {
@@ -50,36 +48,21 @@ export class ApiStack extends cdk.Stack {
       type: 'String',
       default: config.hostedZoneDomain
     })
-    const cognitoUserPoolIdParameter = new cdk.CfnParameter(this, 'COGNITO_USER_POOL_ID', {
+    const identityAuthorizerArnParameter = new cdk.CfnParameter(this, 'IDENTITY_AUTHORIZER_ARN', {
       type: 'String',
-      default: config.identity.userPoolId
-    })
-    const cognitoUserPoolClientIdParameter = new cdk.CfnParameter(this, 'COGNITO_USER_POOL_CLIENT_ID', {
-      type: 'String',
-      default: config.identity.userPoolClientId
-    })
-    const identityOauthUrlParameter = new cdk.CfnParameter(this, 'IDENTITY_OAUTH_URL', {
-      type: 'String',
-      default: config.identity.oauthUrl
+      default: config.identity.authorizerArn
     })
 
     // Create shared resources
     const sharedResources = new Resources(scope, this, config)
-
-    const verifiers: OpenAPIVerifiers = [{
-      name: 'Connected Web Shared',
-      userPoolId: cognitoUserPoolIdParameter.valueAsString,
-      tokenUse: 'access',
-      clientId: cognitoUserPoolClientIdParameter.valueAsString,
-      oauthUrl: identityOauthUrlParameter.valueAsString
-    }]
 
     // Create API Gateway
     const apiGateway = new OpenAPIRestAPI<Resources>(this, 'Template API', {
       Description: 'Template API - https://github.com/connected-web/template-api',
       SubDomain: subdomainParameter.valueAsString,
       HostedZoneDomain: hostedZoneDomainParameter.valueAsString,
-      Verifiers: verifiers
+      AuthorizerARN: identityAuthorizerArnParameter.valueAsString,
+      Verifiers: []
     }, sharedResources)
 
     // Kick of dependency injection for shared models and model factory

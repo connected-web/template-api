@@ -21,9 +21,7 @@ const getTemplate = (): Template => {
     subdomain: 'test-api',
     hostedZoneDomain: 'dummy.domain.name',
     identity: {
-      userPoolId: 'eu-west-2_example',
-      userPoolClientId: 'example-client-id',
-      oauthUrl: 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com'
+      authorizerArn: 'arn:aws:lambda:eu-west-2:1234567890:function:SharedAuthorizer'
     }
   })
   const template = Template.fromStack(stack)

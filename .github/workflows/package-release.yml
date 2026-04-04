@@ -38,6 +38,7 @@ jobs:
   package-release:
     name: Pack/Publish/Deploy release
     runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'push' && 'prod' || (github.event.inputs.account == 'connected-web-prod' && 'prod' || 'dev') }}
     env:
       NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN }}
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
@@ -116,17 +117,24 @@ jobs:
 
           echo "CWEB_USER_POOL_ID=$USER_POOL_ID" >> "$GITHUB_ENV"
 
+      - name: Login cweb machine identity
+        run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" --get-access-token --machine > /dev/null
+
+      - name: Load management build context
+        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" configure --write-github-env
+
       - name: Resolve deploy config
         run: |
           set -euo pipefail
           ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
-          OAUTH_URL="$(jq -r '.identity.verifiers[0].oauthUrl // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-          USER_POOL_ID="$(jq -r '.identity.verifiers[0].userPoolId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-          CLIENT_ID="$(jq -r '.identity.verifiers[0].clientId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+          AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
+          if [ -z "$AUTHORIZER_ARN" ]; then
+            AUTHORIZER_ARN="$(jq -r '.identity.authorizerArn // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+          fi
           HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$ACCOUNT_CONFIG_JSON")"
 
-          if [ -z "$OAUTH_URL" ] || [ -z "$USER_POOL_ID" ] || [ -z "$CLIENT_ID" ] || [ -z "$HOSTED_ZONE_DOMAIN" ]; then
-            echo "Unable to resolve deploy config values from AWS_ACCOUNT_CONFIG" >&2
+          if [ -z "$AUTHORIZER_ARN" ] || [ -z "$HOSTED_ZONE_DOMAIN" ]; then
+            echo "Unable to resolve deploy config values (IDENTITY_AUTHORIZER_ARN / hosted zone)." >&2
             exit 1
           fi
 
@@ -137,10 +145,7 @@ jobs:
           fi
 
           echo "DEPLOY_INSTANCE_ID=$DEPLOY_INSTANCE_ID" >> "$GITHUB_ENV"
-          echo "DEPLOY_CONFIG={\"Subdomain\":\"$DEPLOY_INSTANCE_ID\",\"HostedZoneDomain\":\"$HOSTED_ZONE_DOMAIN\",\"COGNITO_USER_POOL_ID\":\"$USER_POOL_ID\",\"COGNITO_USER_POOL_CLIENT_ID\":\"$CLIENT_ID\",\"IDENTITY_OAUTH_URL\":\"$OAUTH_URL\"}" >> "$GITHUB_ENV"
-
-      - name: Login cweb machine identity
-        run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" --get-access-token --machine > /dev/null
+          echo "DEPLOY_CONFIG={\"Subdomain\":\"$DEPLOY_INSTANCE_ID\",\"HostedZoneDomain\":\"$HOSTED_ZONE_DOMAIN\",\"IDENTITY_AUTHORIZER_ARN\":\"$AUTHORIZER_ARN\"}" >> "$GITHUB_ENV"
 
       - name: Pack template-api package
         run: cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" package pack --component template-api --version "$PACKAGE_VERSION"
