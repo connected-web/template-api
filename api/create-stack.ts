@@ -26,7 +26,7 @@ const parseAccountConfig = (value: string): Record<string, any> => {
 }
 const accountConfig = parseAccountConfig(raw)
 const deployConfig = parseAccountConfig(DEPLOY_CONFIG ?? '')
-const mergedConfig = {
+const mergedConfig: Record<string, any> = {
   ...accountConfig,
   ...deployConfig,
   identity: {
