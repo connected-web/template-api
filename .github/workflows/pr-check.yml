@@ -159,6 +159,10 @@ jobs:
         with:
           node-version: 20.x
 
+      - name: Install npm dependencies (api)
+        run: npm install
+        working-directory: ./api
+
       - name: Run post-deployment smoke test
         run: npm run test:post-deployment
         working-directory: ./api
