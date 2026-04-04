@@ -88,12 +88,13 @@ export class ApiStack extends cdk.Stack {
       domainName: vanityDomain,
       certificate: cert
     })
-    new CnameRecord(this, 'ApiCnameRecord', {
+    const apiCnameRecord = new CnameRecord(this, 'ApiCnameRecord', {
       domainName: domain.domainNameAliasDomainName,
       zone: hostedZone,
       recordName: vanityDomain,
       ttl: cdk.Duration.minutes(5)
     })
+    void apiCnameRecord
 
     // Kick of dependency injection for shared models and model factory
     OpenAPIBasicModels.setup(this, apiGateway.restApi)
