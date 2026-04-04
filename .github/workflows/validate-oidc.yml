@@ -20,6 +20,8 @@ jobs:
   deploy:
     name: "Validate OIDC"
     runs-on: ubuntu-latest
+    env:
+      CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
     steps:
       - name: Checkout
         uses: actions/checkout@v5
