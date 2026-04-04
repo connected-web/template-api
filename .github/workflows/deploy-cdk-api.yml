@@ -20,7 +20,7 @@ on:
 
 permissions:
   id-token: write # This is required for OIDC
-  contents: write # This is required for actions/checkout@v2.4.0
+  contents: write # Required for repository checkout
   pull-requests: write # This is required to write comments on the Pull Request
 
 jobs:
@@ -39,10 +39,27 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
+      - name: Install cweb CLI
+        run: npm install -g @connected-web/cweb
+
+      - name: Resolve profile from account alias
+        run: |
+          case "${{ inputs.account || github.event.inputs.account || 'connected-web-dev' }}" in
+            connected-web-dev|connected-web-dev-with-headers)
+              echo "TARGET_PROFILE=dev" >> "$GITHUB_ENV"
+              ;;
+            connected-web-prod)
+              echo "TARGET_PROFILE=prod" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "Unsupported account alias: ${{ inputs.account || github.event.inputs.account || 'connected-web-dev' }}" >&2
+              exit 1
+              ;;
+          esac
+
       # Authorise for target account
-      - name: Read customer config to set AWS Account ID
-        working-directory: ./.github/workflows/scripts
-        run: sh ./setupGithubEnvironment.sh ${{ inputs.account || github.event.inputs.account || 'connected-web-dev' }}
+      - name: Resolve account config from cweb profile
+        run: cweb configure -p "$TARGET_PROFILE" --write-github-env
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v5

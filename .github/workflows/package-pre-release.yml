@@ -38,7 +38,6 @@ jobs:
       NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN }}
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
-      CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
 
     steps:
       - name: Checkout
@@ -77,24 +76,11 @@ jobs:
               ;;
           esac
 
-      - name: Read account config
-        working-directory: ./.github/workflows/scripts
-        run: sh ./setupGithubEnvironment.sh "${{ github.event.inputs.account }}"
-
-      - name: Resolve Cognito user pool id
-        run: |
-          set -euo pipefail
-          ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
-          USER_POOL_ID="$(jq -r '.identity.verifiers[0].userPoolId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-          if [ -z "$USER_POOL_ID" ]; then
-            echo "Unable to resolve identity.verifiers[0].userPoolId from AWS_ACCOUNT_CONFIG" >&2
-            exit 1
-          fi
-
-          echo "CWEB_USER_POOL_ID=$USER_POOL_ID" >> "$GITHUB_ENV"
+      - name: Resolve account config from cweb profile
+        run: cweb configure -p "$TARGET_PROFILE" --write-github-env
 
       - name: Login cweb machine identity
-        run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" --get-access-token --machine > /dev/null
+        run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" --get-access-token --machine > /dev/null
 
       - name: Resolve deploy config
         run: |
@@ -125,15 +111,15 @@ jobs:
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
 
       - name: Pack template-api package
-        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" package pack --component template-api --version "$PACKAGE_VERSION"
+        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package pack --component template-api --version "$PACKAGE_VERSION"
 
       - name: Publish template-api package
-        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" package publish --component template-api --version "$PACKAGE_VERSION"
+        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package publish --component template-api --version "$PACKAGE_VERSION"
 
       - name: Deploy template-api package
         if: ${{ github.event.inputs.deploy_enabled == 'true' }}
         run: |
-          cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" package deploy \
+          cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package deploy \
             --host remote \
             --component template-api \
             --version "$PACKAGE_VERSION" \
