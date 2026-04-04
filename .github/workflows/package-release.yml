@@ -37,7 +37,7 @@ jobs:
   package-release:
     name: Pack/Publish/Deploy release
     runs-on: ubuntu-latest
-    environment: ${{ github.event_name == 'push' && 'prod' || (github.event.inputs.account == 'connected-web-prod' && 'prod' || 'dev') }}
+    environment: dev
     env:
       NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN }}
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
@@ -64,7 +64,7 @@ jobs:
       - name: Resolve account/profile
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            ACCOUNT="connected-web-prod"
+            ACCOUNT="connected-web-dev"
             VERSION="${GITHUB_REF_NAME#v}"
           else
             ACCOUNT="${{ github.event.inputs.account }}"

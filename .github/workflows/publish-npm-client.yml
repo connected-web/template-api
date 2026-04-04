@@ -28,7 +28,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment-name || (github.event_name == 'release' && github.event.release.prerelease && 'dev') || (github.event_name == 'release' && 'prod') || 'dev' }}
+    environment: ${{ inputs.environment-name || 'dev' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -60,8 +60,8 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           client-id: ${{ secrets.CWEB_CLIENT_ID }}
           client-secret: ${{ secrets.CWEB_CLIENT_SECRET }}
-          oauth-token-endpoint: ${{ inputs.oauth-token-endpoint || ((github.event_name == 'release' && github.event.release.prerelease) && 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token') || ((github.event_name == 'release') && 'https://connected-web.auth.eu-west-2.amazoncognito.com/oauth2/token') || 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token' }}
+          oauth-token-endpoint: ${{ inputs.oauth-token-endpoint || 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token' }}
           package-id: '@connected-web/template-api-client'
           # openapi-spec-file: 'src/post-deployment/openapi-spec.json'
-          openapi-spec-url: ${{ inputs.openapi-spec-url || ((github.event_name == 'release' && github.event.release.prerelease) && 'https://template-api.dev.connected-web.services/openapi') || ((github.event_name == 'release') && 'https://template-api.connected-web.services/openapi') || 'https://template-api.dev.connected-web.services/openapi' }}
+          openapi-spec-url: ${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}
           version: ${{ steps.version.outputs.version }}
