@@ -111,15 +111,21 @@ jobs:
           set -euo pipefail
           ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
           USER_POOL_ID="$(jq -r '.identity.verifiers[0].userPoolId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+          OAUTH_URL="$(jq -r '.identity.verifiers[0].oauthUrl // empty' <<<"$ACCOUNT_CONFIG_JSON")"
           if [ -z "$USER_POOL_ID" ]; then
             echo "Unable to resolve identity.verifiers[0].userPoolId from AWS_ACCOUNT_CONFIG" >&2
             exit 1
           fi
+          if [ -z "$OAUTH_URL" ]; then
+            echo "Unable to resolve identity.verifiers[0].oauthUrl from AWS_ACCOUNT_CONFIG" >&2
+            exit 1
+          fi
 
           echo "CWEB_USER_POOL_ID=$USER_POOL_ID" >> "$GITHUB_ENV"
+          echo "CWEB_AUTH_URL=$OAUTH_URL" >> "$GITHUB_ENV"
 
       - name: Login cweb machine identity
-        run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" --get-access-token --machine > /dev/null
+        run: cweb login -p "$TARGET_PROFILE" --auth-url "$CWEB_AUTH_URL" --user-pool-id "$CWEB_USER_POOL_ID" --get-access-token --machine > /dev/null
 
       - name: Load management build context
         run: cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" configure --write-github-env
