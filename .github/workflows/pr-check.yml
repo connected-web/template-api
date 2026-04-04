@@ -174,4 +174,6 @@ jobs:
     name: Publish NPM Client
     needs: ['post-deployment-tests']
     uses: ./.github/workflows/publish-npm-client.yml
+    with:
+      openapi-spec-url: https://test-db.dev.connected-web.services/openapi
     secrets: inherit

@@ -2,6 +2,11 @@ name: Publish API Client
 
 on:
   workflow_call:
+    inputs:
+      openapi-spec-url:
+        required: false
+        type: string
+        default: https://template-api.dev.connected-web.services/openapi
   workflow_dispatch:
   release:
     types:
@@ -17,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
 
       - name: Determine version
         id: version
@@ -43,5 +48,5 @@ jobs:
           oauth-token-endpoint: 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token'
           package-id: '@connected-web/template-api-client'
           # openapi-spec-file: 'src/post-deployment/openapi-spec.json'
-          openapi-spec-url: 'https://template-api.dev.connected-web.services/openapi'
+          openapi-spec-url: ${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}
           version: ${{ steps.version.outputs.version }}
