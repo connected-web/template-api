@@ -13,9 +13,17 @@ const {
 
 const accountProfile = ACCOUNT_PROFILE
 const raw = AWS_ACCOUNT_CONFIG ?? ''
-const accountConfig = raw === ''
-  ? {}
-  : JSON.parse(Buffer.from(raw, 'base64').toString('utf8'))
+const parseAccountConfig = (value: string): Record<string, any> => {
+  if (value === '') return {}
+
+  const trimmed = value.trim()
+  if (trimmed.startsWith('{')) {
+    return JSON.parse(trimmed)
+  }
+
+  return JSON.parse(Buffer.from(value, 'base64').toString('utf8'))
+}
+const accountConfig = parseAccountConfig(raw)
 const accountId = AWS_ACCOUNT_ID
 
 console.log('Account config:', { accountProfile, accountId, accountConfig })
