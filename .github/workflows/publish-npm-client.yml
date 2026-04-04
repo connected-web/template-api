@@ -7,6 +7,14 @@ on:
         required: false
         type: string
         default: https://template-api.dev.connected-web.services/openapi
+      environment-name:
+        required: false
+        type: string
+        default: dev
+      oauth-token-endpoint:
+        required: false
+        type: string
+        default: https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token
   workflow_dispatch:
   release:
     types:
@@ -20,6 +28,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment-name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -43,9 +52,9 @@ jobs:
         uses: connected-web/pnpfos@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          client-id: ${{ secrets.POST_DEPLOYMENT_CLIENT_ID }}
-          client-secret: ${{ secrets.POST_DEPLOYMENT_CLIENT_SECRET }}
-          oauth-token-endpoint: 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token'
+          client-id: ${{ secrets.CWEB_CLIENT_ID }}
+          client-secret: ${{ secrets.CWEB_CLIENT_SECRET }}
+          oauth-token-endpoint: ${{ inputs.oauth-token-endpoint }}
           package-id: '@connected-web/template-api-client'
           # openapi-spec-file: 'src/post-deployment/openapi-spec.json'
           openapi-spec-url: ${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}

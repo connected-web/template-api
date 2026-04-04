@@ -175,5 +175,7 @@ jobs:
     needs: ['post-deployment-tests']
     uses: ./.github/workflows/publish-npm-client.yml
     with:
+      environment-name: dev
+      oauth-token-endpoint: https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token
       openapi-spec-url: https://template-api.dev.connected-web.services/openapi
     secrets: inherit
