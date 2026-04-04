@@ -100,12 +100,20 @@ jobs:
           AUTHORIZER_ARN="$(jq -r '.identity.authorizerArn // empty' <<<"$ACCOUNT_CONFIG_JSON")"
           HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$ACCOUNT_CONFIG_JSON")"
 
-          if [ -z "$AUTHORIZER_ARN" ] || [ -z "$HOSTED_ZONE_DOMAIN" ]; then
-            echo "Unable to resolve deploy config values (IDENTITY_AUTHORIZER_ARN / hosted zone)." >&2
+          if [ -z "$HOSTED_ZONE_DOMAIN" ]; then
+            echo "Unable to resolve deploy config value (hosted zone)." >&2
             exit 1
           fi
 
-          echo "DEPLOY_CONFIG={\"Subdomain\":\"$TARGET_INSTANCE_ID\",\"HostedZoneDomain\":\"$HOSTED_ZONE_DOMAIN\",\"IDENTITY_AUTHORIZER_ARN\":\"$AUTHORIZER_ARN\"}" >> "$GITHUB_ENV"
+          DEPLOY_CONFIG_JSON="$(jq -cn \
+            --arg subdomain "$TARGET_INSTANCE_ID" \
+            --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
+            --arg authorizerArn "$AUTHORIZER_ARN" \
+            '{
+              Subdomain: $subdomain,
+              HostedZoneDomain: $hostedZoneDomain
+            } + (if ($authorizerArn | length) > 0 then { IDENTITY_AUTHORIZER_ARN: $authorizerArn } else {} end)')"
+          echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
 
       - name: Pack template-api package
         run: cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" package pack --component template-api --version "$PACKAGE_VERSION"
