@@ -28,7 +28,6 @@ on:
 permissions:
   contents: read
   packages: read
-  id-token: write
 
 jobs:
   package-prerelease:
@@ -82,14 +81,6 @@ jobs:
         working-directory: ./.github/workflows/scripts
         run: sh ./setupGithubEnvironment.sh "${{ github.event.inputs.account }}"
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          aws-region: eu-west-2
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/ConnectedWebGithub-template-api
-          role-session-name: template-api-package-prerelease
-          role-duration-seconds: 3600
-
       - name: Resolve Cognito user pool id
         run: |
           set -euo pipefail
@@ -105,17 +96,11 @@ jobs:
       - name: Login cweb machine identity
         run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" --get-access-token --machine > /dev/null
 
-      - name: Load management build context
-        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$CWEB_USER_POOL_ID" configure --write-github-env
-
       - name: Resolve deploy config
         run: |
           set -euo pipefail
           ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
-          AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
-          if [ -z "$AUTHORIZER_ARN" ]; then
-            AUTHORIZER_ARN="$(jq -r '.identity.authorizerArn // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-          fi
+          AUTHORIZER_ARN="$(jq -r '.identity.authorizerArn // empty' <<<"$ACCOUNT_CONFIG_JSON")"
           HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$ACCOUNT_CONFIG_JSON")"
 
           if [ -z "$AUTHORIZER_ARN" ] || [ -z "$HOSTED_ZONE_DOMAIN" ]; then
