@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
 import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager'
+import { CfnPermission } from 'aws-cdk-lib/aws-lambda'
 import { CnameRecord, HostedZone } from 'aws-cdk-lib/aws-route53'
 
 import { Construct } from 'constructs'
@@ -75,6 +76,14 @@ export class ApiStack extends cdk.Stack {
       Verifiers: []
     }, sharedResources)
 
+    // When using an imported/shared authorizer by ARN, API Gateway permission is not
+    // always auto-added for unresolved ARNs. Grant invoke permission explicitly.
+    const authorizerInvokePermission = new CfnPermission(this, 'AllowApiGatewayInvokeSharedAuthorizer', {
+      action: 'lambda:InvokeFunction',
+      functionName: identityAuthorizerArnParameter.valueAsString,
+      principal: 'apigateway.amazonaws.com'
+    })
+
     const hostedZone = HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
       hostedZoneId: hostedZoneIdParameter.valueAsString,
       zoneName: hostedZoneDomainParameter.valueAsString
@@ -94,7 +103,7 @@ export class ApiStack extends cdk.Stack {
       recordName: vanityDomain,
       ttl: cdk.Duration.minutes(5)
     })
-    const stackOutputs = [apiCnameRecord]
+    const stackOutputs = [apiCnameRecord, authorizerInvokePermission]
     console.log('Created stack outputs:', stackOutputs.length)
 
     // Kick of dependency injection for shared models and model factory
