@@ -36,7 +36,7 @@ jobs:
     needs: ['test-cdk-api']
     runs-on: ubuntu-latest
     env:
-      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN }}
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       TARGET_ACCOUNT: connected-web-dev
