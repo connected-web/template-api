@@ -42,7 +42,7 @@ jobs:
       CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
       TARGET_ACCOUNT: connected-web-dev
       TARGET_PROFILE: dev
-      TARGET_INSTANCE_ID: test-db
+      TARGET_INSTANCE_ID: template-api
 
     steps:
       - name: Checkout
@@ -167,7 +167,7 @@ jobs:
         run: npm run test:post-deployment
         working-directory: ./api
         env:
-          POST_DEPLOYMENT_SERVER_DOMAIN: https://test-db.dev.connected-web.services
+          POST_DEPLOYMENT_SERVER_DOMAIN: https://template-api.dev.connected-web.services
           POST_DEPLOYMENT_SMOKE_ONLY: "true"
 
   publish-npm-client:
@@ -175,5 +175,5 @@ jobs:
     needs: ['post-deployment-tests']
     uses: ./.github/workflows/publish-npm-client.yml
     with:
-      openapi-spec-url: https://test-db.dev.connected-web.services/openapi
+      openapi-spec-url: https://template-api.dev.connected-web.services/openapi
     secrets: inherit
