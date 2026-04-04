@@ -38,13 +38,19 @@ jobs:
         run: |
           if [ -n "${{ github.event.pull_request }}" ]; then
             echo "Using 0.0.0-branch+gitref as the version for a PR"
-            echo "version=0.0.0-${{ github.head_ref }}-${{ github.sha }}" >> $GITHUB_OUTPUT
+            SAFE_REF="${{ github.head_ref }}"
+            SAFE_REF="${SAFE_REF//\//-}"
+            echo "version=0.0.0-${SAFE_REF}-${{ github.sha }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.release.prerelease }}" == "true" ]; then
             echo "Using the tag name for prerelease"
-            echo "version=${{ github.event.release.tag_name }}-RC${{ github.run_number }}" >> $GITHUB_OUTPUT
+            TAG="${{ github.event.release.tag_name }}"
+            TAG="${TAG#v}"
+            echo "version=${TAG}-rc.${{ github.run_number }}" >> $GITHUB_OUTPUT
           else
             echo "Using the tag name for release"
-            echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+            TAG="${{ github.event.release.tag_name }}"
+            TAG="${TAG#v}"
+            echo "version=${TAG}" >> $GITHUB_OUTPUT
           fi
         shell: bash
 
