@@ -34,6 +34,8 @@ const mergedConfig: Record<string, any> = {
     ...(deployConfig?.identity ?? {}),
     authorizerArn:
       deployConfig?.IDENTITY_AUTHORIZER_ARN ??
+      deployConfig?.IDENTITYAUTHORIZERARN ??
+      deployConfig?.IdentityAuthorizerArn ??
       deployConfig?.identity?.authorizerArn ??
       accountConfig?.identity?.authorizerArn ??
       ''
