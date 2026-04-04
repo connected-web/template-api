@@ -140,8 +140,7 @@ jobs:
             '{
               Subdomain: $subdomain,
               HostedZoneDomain: $hostedZoneDomain,
-              IDENTITY_AUTHORIZER_ARN: $authorizerArn,
-              IDENTITYAUTHORIZERARN: $authorizerArn
+              IDENTITY_AUTHORIZER_ARN: $authorizerArn
             }
             + (if ($hostedZoneId | length) > 0 then { HostedZoneId: $hostedZoneId } else {} end)')"
           echo "DEPLOY_INSTANCE_ID=$DEPLOY_INSTANCE_ID" >> "$GITHUB_ENV"

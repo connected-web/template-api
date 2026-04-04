@@ -119,8 +119,7 @@ jobs:
             '{
               Subdomain: $subdomain,
               HostedZoneDomain: $hostedZoneDomain,
-              IDENTITY_AUTHORIZER_ARN: $authorizerArn,
-              IDENTITYAUTHORIZERARN: $authorizerArn
+              IDENTITY_AUTHORIZER_ARN: $authorizerArn
             }
             + (if ($hostedZoneId | length) > 0 then { HostedZoneId: $hostedZoneId } else {} end)')"
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
