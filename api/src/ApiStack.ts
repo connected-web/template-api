@@ -1,4 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
+import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager'
+import { CnameRecord, HostedZone } from 'aws-cdk-lib/aws-route53'
 
 import { Construct } from 'constructs'
 import { OpenAPIRestAPI, OpenAPIBasicModels } from '@connected-web/openapi-rest-api'
@@ -14,6 +16,7 @@ export interface IdentityConfig {
 export interface StackParameters {
   subdomain: string
   hostedZoneDomain: string
+  hostedZoneId?: string
   identity: IdentityConfig
 }
 
@@ -40,6 +43,18 @@ export class ApiStack extends cdk.Stack {
   constructor (scope: Construct, id: string, props: cdk.StackProps, config: StackParameters) {
     super(scope, id, props)
 
+    const subdomainParameter = new cdk.CfnParameter(this, 'Subdomain', {
+      type: 'String',
+      default: config.subdomain
+    })
+    const hostedZoneDomainParameter = new cdk.CfnParameter(this, 'HostedZoneDomain', {
+      type: 'String',
+      default: config.hostedZoneDomain
+    })
+    const hostedZoneIdParameter = new cdk.CfnParameter(this, 'HostedZoneId', {
+      type: 'String',
+      default: config.hostedZoneId ?? ''
+    })
     const identityAuthorizerArnParameter = new cdk.CfnParameter(this, 'IDENTITY_AUTHORIZER_ARN', {
       type: 'String',
       default: config.identity.authorizerArn
@@ -48,14 +63,37 @@ export class ApiStack extends cdk.Stack {
     // Create shared resources
     const sharedResources = new Resources(scope, this, config)
 
+    // Disable OpenAPIRestAPI's internal hosted-zone lookup path; we provision custom domain via HostedZoneId.
+    process.env.CREATE_CNAME_RECORD = 'false'
+
     // Create API Gateway
     const apiGateway = new OpenAPIRestAPI<Resources>(this, 'Template API', {
       Description: 'Template API - https://github.com/connected-web/template-api',
-      SubDomain: config.subdomain,
-      HostedZoneDomain: config.hostedZoneDomain,
+      SubDomain: subdomainParameter.valueAsString,
+      HostedZoneDomain: hostedZoneDomainParameter.valueAsString,
       AuthorizerARN: identityAuthorizerArnParameter.valueAsString,
       Verifiers: []
     }, sharedResources)
+
+    const hostedZone = HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+      hostedZoneId: hostedZoneIdParameter.valueAsString,
+      zoneName: hostedZoneDomainParameter.valueAsString
+    })
+    const vanityDomain = `${subdomainParameter.valueAsString}.${hostedZoneDomainParameter.valueAsString}`
+    const cert = new Certificate(this, 'ApiDomainCertificate', {
+      domainName: vanityDomain,
+      validation: CertificateValidation.fromDns(hostedZone)
+    })
+    const domain = apiGateway.restApi.addDomainName('ApiDomainName', {
+      domainName: vanityDomain,
+      certificate: cert
+    })
+    new CnameRecord(this, 'ApiCnameRecord', {
+      domainName: domain.domainNameAliasDomainName,
+      zone: hostedZone,
+      recordName: vanityDomain,
+      ttl: cdk.Duration.minutes(5)
+    })
 
     // Kick of dependency injection for shared models and model factory
     OpenAPIBasicModels.setup(this, apiGateway.restApi)

@@ -57,6 +57,7 @@ const stackTemplate = new ApiStack(app, 'TemplateApiStack', {
 {
   subdomain,
   hostedZoneDomain: mergedConfig.hostedZoneDomain ?? mergedConfig.HostedZoneDomain ?? 'dev.connected-web.services',
+  hostedZoneId: mergedConfig.hostedZoneId ?? mergedConfig.HostedZoneId ?? '',
   identity: {
     authorizerArn: mergedConfig?.identity?.authorizerArn ?? ''
   }

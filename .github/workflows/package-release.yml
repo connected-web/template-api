@@ -118,6 +118,7 @@ jobs:
           ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
           AUTHORIZER_ARN="$(jq -r '.identity.authorizerArn // empty' <<<"$ACCOUNT_CONFIG_JSON")"
           HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$ACCOUNT_CONFIG_JSON")"
+          HOSTED_ZONE_ID="$(jq -r '.hostedZoneId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
 
           if [ -z "$HOSTED_ZONE_DOMAIN" ]; then
             echo "Unable to resolve deploy config value (hosted zone)." >&2
@@ -133,11 +134,14 @@ jobs:
           DEPLOY_CONFIG_JSON="$(jq -cn \
             --arg subdomain "$DEPLOY_INSTANCE_ID" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
+            --arg hostedZoneId "$HOSTED_ZONE_ID" \
             --arg authorizerArn "$AUTHORIZER_ARN" \
             '{
               Subdomain: $subdomain,
               HostedZoneDomain: $hostedZoneDomain
-            } + (if ($authorizerArn | length) > 0 then { IDENTITY_AUTHORIZER_ARN: $authorizerArn } else {} end)')"
+            }
+            + (if ($hostedZoneId | length) > 0 then { HostedZoneId: $hostedZoneId } else {} end)
+            + (if ($authorizerArn | length) > 0 then { IDENTITY_AUTHORIZER_ARN: $authorizerArn } else {} end)')"
           echo "DEPLOY_INSTANCE_ID=$DEPLOY_INSTANCE_ID" >> "$GITHUB_ENV"
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
 

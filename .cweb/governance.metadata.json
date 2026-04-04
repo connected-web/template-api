@@ -38,8 +38,7 @@
           "additionalProperties": false,
           "required": [
             "Subdomain",
-            "HostedZoneDomain",
-            "IDENTITY_AUTHORIZER_ARN"
+            "HostedZoneDomain"
           ],
           "properties": {
             "Subdomain": {
@@ -47,6 +46,10 @@
               "minLength": 1
             },
             "HostedZoneDomain": {
+              "type": "string",
+              "minLength": 1
+            },
+            "HostedZoneId": {
               "type": "string",
               "minLength": 1
             },
