@@ -39,6 +39,7 @@ jobs:
       NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN }}
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
+      CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
       CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
       TARGET_ACCOUNT: connected-web-dev
       TARGET_PROFILE: dev
@@ -64,8 +65,8 @@ jobs:
       - name: Verify machine credentials are configured
         run: |
           set -euo pipefail
-          if [ -z "${CWEB_CLIENT_ID:-}" ] || [ -z "${CWEB_CLIENT_SECRET:-}" ]; then
-            echo "Missing CWEB_CLIENT_ID/CWEB_CLIENT_SECRET for CI machine login." >&2
+          if [ -z "${CWEB_CLIENT_ID:-}" ] || [ -z "${CWEB_CLIENT_SECRET:-}" ] || [ -z "${CWEB_CLIENT_TYPE:-}" ]; then
+            echo "Missing CWEB_CLIENT_ID/CWEB_CLIENT_SECRET/CWEB_CLIENT_TYPE for CI machine login." >&2
             echo "Bootstrap once from an operator workstation, then set GitHub secrets." >&2
             echo "Example: cweb repo bootstrap -p dev --org connected-web --repo template-api --env dev" >&2
             exit 1
