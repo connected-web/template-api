@@ -29,6 +29,8 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment-name || 'dev' }}
+    env:
+      CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -54,7 +56,21 @@ jobs:
           fi
         shell: bash
 
+      - name: Check auth mode compatibility for API client publish
+        id: auth_mode
+        run: |
+          set -euo pipefail
+          CLIENT_TYPE="${CWEB_CLIENT_TYPE:-}"
+          if [ -z "$CLIENT_TYPE" ] || [[ "$CLIENT_TYPE" == Cognito/* ]]; then
+            echo "publish_client=true" >> "$GITHUB_OUTPUT"
+            echo "Using OAuth token endpoint mode for OpenAPI client publish."
+          else
+            echo "publish_client=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping API client publish because CWEB_CLIENT_TYPE=$CLIENT_TYPE (non-Cognito machine auth)."
+          fi
+
       - name: Publish API Client
+        if: ${{ steps.auth_mode.outputs.publish_client == 'true' }}
         uses: connected-web/pnpfos@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
