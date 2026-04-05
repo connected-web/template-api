@@ -33,7 +33,6 @@ jobs:
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
-      CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
       NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN != '' && secrets.CONNECTED_WEB_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
@@ -73,39 +72,27 @@ jobs:
             echo "Using cweb machine-auth mode for OpenAPI client publish ($CLIENT_TYPE)."
           fi
 
-      - name: Resolve cweb profile from environment
-        if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
-        id: cweb_profile
-        run: |
-          set -euo pipefail
-          case "${{ inputs.environment-name || 'dev' }}" in
-            dev) echo "profile=dev" >> "$GITHUB_OUTPUT" ;;
-            prod) echo "profile=prod" >> "$GITHUB_OUTPUT" ;;
-            *)
-              echo "Unsupported environment-name for cweb profile mapping: ${{ inputs.environment-name || 'dev' }}" >&2
-              exit 1
-              ;;
-          esac
-
-      - name: Install cweb CLI
-        if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22.x
-          registry-url: https://npm.pkg.github.com
-          scope: '@connected-web'
-
-      - name: Install cweb CLI package
-        if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
-        run: npm install -g @connected-web/cweb@latest --registry https://npm.pkg.github.com
-
-      - name: Download OpenAPI spec via cweb machine auth
+      - name: Download OpenAPI spec via Shared Authoriser machine auth
         if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
         run: |
           set -euo pipefail
+          test -n "${CWEB_CLIENT_ID:-}"
+          test -n "${CWEB_CLIENT_SECRET:-}"
           mkdir -p .tmp
-          cweb -p "${{ steps.cweb_profile.outputs.profile }}" configure --write-github-env
-          cweb -p "${{ steps.cweb_profile.outputs.profile }}" curl "${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}" --silent > .tmp/openapi.json
+          AUTH_HEADER="$(node - <<'NODE'
+          const crypto = require('crypto')
+          const clientId = process.env.CWEB_CLIENT_ID || ''
+          const clientSecret = process.env.CWEB_CLIENT_SECRET || ''
+          const windowValue = Math.floor(Date.now() / 1000 / 300)
+          const data = `${clientId}:${windowValue}`
+          const hmac = crypto.createHmac('sha256', clientSecret).update(data).digest('hex')
+          const token = Buffer.from(`${data}:${hmac}`).toString('base64')
+          process.stdout.write(`CWEB ${token}`)
+          NODE
+          )"
+          curl --fail --silent --show-error \
+            -H "Authorization: ${AUTH_HEADER}" \
+            "${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}" > .tmp/openapi.json
           test -s .tmp/openapi.json
 
       - name: Publish API Client (OAuth URL mode)
