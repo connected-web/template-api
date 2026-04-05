@@ -31,6 +31,9 @@ jobs:
     environment: ${{ inputs.environment-name || 'dev' }}
     env:
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
+      CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
+      CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
+      CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -62,15 +65,42 @@ jobs:
           set -euo pipefail
           CLIENT_TYPE="${CWEB_CLIENT_TYPE:-}"
           if [ -z "$CLIENT_TYPE" ] || [[ "$CLIENT_TYPE" == Cognito/* ]]; then
-            echo "publish_client=true" >> "$GITHUB_OUTPUT"
-            echo "Using OAuth token endpoint mode for OpenAPI client publish."
+            echo "mode=cognito" >> "$GITHUB_OUTPUT"
+            echo "Using OAuth token endpoint mode for OpenAPI client publish (${CLIENT_TYPE:-Cognito/AppClient/unknown})."
           else
-            echo "publish_client=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Skipping API client publish because CWEB_CLIENT_TYPE=$CLIENT_TYPE (non-Cognito machine auth)."
+            echo "mode=shared-authoriser" >> "$GITHUB_OUTPUT"
+            echo "Using cweb machine-auth mode for OpenAPI client publish ($CLIENT_TYPE)."
           fi
 
-      - name: Publish API Client
-        if: ${{ steps.auth_mode.outputs.publish_client == 'true' }}
+      - name: Resolve cweb profile from environment
+        if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
+        id: cweb_profile
+        run: |
+          set -euo pipefail
+          case "${{ inputs.environment-name || 'dev' }}" in
+            dev) echo "profile=dev" >> "$GITHUB_OUTPUT" ;;
+            prod) echo "profile=prod" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "Unsupported environment-name for cweb profile mapping: ${{ inputs.environment-name || 'dev' }}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Install cweb CLI
+        if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
+        run: npm install -g @connected-web/cweb@latest
+
+      - name: Download OpenAPI spec via cweb machine auth
+        if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp
+          cweb -p "${{ steps.cweb_profile.outputs.profile }}" configure --write-github-env
+          cweb -p "${{ steps.cweb_profile.outputs.profile }}" curl "${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}" --silent > .tmp/openapi.json
+          test -s .tmp/openapi.json
+
+      - name: Publish API Client (OAuth URL mode)
+        if: ${{ steps.auth_mode.outputs.mode == 'cognito' }}
         uses: connected-web/pnpfos@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -78,6 +108,14 @@ jobs:
           client-secret: ${{ secrets.CWEB_CLIENT_SECRET }}
           oauth-token-endpoint: ${{ inputs.oauth-token-endpoint || 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token' }}
           package-id: '@connected-web/template-api-client'
-          # openapi-spec-file: 'src/post-deployment/openapi-spec.json'
           openapi-spec-url: ${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}
+          version: ${{ steps.version.outputs.version }}
+
+      - name: Publish API Client (Shared Authoriser mode)
+        if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
+        uses: connected-web/pnpfos@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          package-id: '@connected-web/template-api-client'
+          openapi-spec-file: '.tmp/openapi.json'
           version: ${{ steps.version.outputs.version }}
