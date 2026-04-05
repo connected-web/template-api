@@ -34,6 +34,7 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -88,7 +89,7 @@ jobs:
 
       - name: Install cweb CLI
         if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
-        run: npm install -g @connected-web/cweb@latest
+        run: npm install -g @connected-web/cweb@latest --registry https://npm.pkg.github.com
 
       - name: Download OpenAPI spec via cweb machine auth
         if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
