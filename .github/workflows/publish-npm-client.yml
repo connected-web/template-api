@@ -34,7 +34,7 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
-      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN != '' && secrets.CONNECTED_WEB_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -88,6 +88,14 @@ jobs:
           esac
 
       - name: Install cweb CLI
+        if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22.x
+          registry-url: https://npm.pkg.github.com
+          scope: '@connected-web'
+
+      - name: Install cweb CLI package
         if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
         run: npm install -g @connected-web/cweb@latest --registry https://npm.pkg.github.com
 
