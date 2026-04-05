@@ -29,6 +29,11 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment-name || 'dev' }}
+    env:
+      CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
+      CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
+      CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
+      NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN != '' && secrets.CONNECTED_WEB_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -54,7 +59,44 @@ jobs:
           fi
         shell: bash
 
-      - name: Publish API Client
+      - name: Check auth mode compatibility for API client publish
+        id: auth_mode
+        run: |
+          set -euo pipefail
+          CLIENT_TYPE="${CWEB_CLIENT_TYPE:-}"
+          if [ -z "$CLIENT_TYPE" ] || [[ "$CLIENT_TYPE" == Cognito/* ]]; then
+            echo "mode=cognito" >> "$GITHUB_OUTPUT"
+            echo "Using OAuth token endpoint mode for OpenAPI client publish (${CLIENT_TYPE:-Cognito/AppClient/unknown})."
+          else
+            echo "mode=shared-authoriser" >> "$GITHUB_OUTPUT"
+            echo "Using cweb machine-auth mode for OpenAPI client publish ($CLIENT_TYPE)."
+          fi
+
+      - name: Download OpenAPI spec via Shared Authoriser machine auth
+        if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
+        run: |
+          set -euo pipefail
+          test -n "${CWEB_CLIENT_ID:-}"
+          test -n "${CWEB_CLIENT_SECRET:-}"
+          OPENAPI_FILE="/tmp/template-api-openapi.json"
+          AUTH_HEADER="$(node - <<'NODE'
+          const crypto = require('crypto')
+          const clientId = process.env.CWEB_CLIENT_ID || ''
+          const clientSecret = process.env.CWEB_CLIENT_SECRET || ''
+          const windowValue = Math.floor(Date.now() / 1000 / 300)
+          const data = `${clientId}:${windowValue}`
+          const hmac = crypto.createHmac('sha256', clientSecret).update(data).digest('hex')
+          const token = Buffer.from(`${data}:${hmac}`).toString('base64')
+          process.stdout.write(`CWEB ${token}`)
+          NODE
+          )"
+          curl --fail --silent --show-error \
+            -H "Authorization: ${AUTH_HEADER}" \
+            "${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}" > "$OPENAPI_FILE"
+          test -s "$OPENAPI_FILE"
+
+      - name: Publish API Client (OAuth URL mode)
+        if: ${{ steps.auth_mode.outputs.mode == 'cognito' }}
         uses: connected-web/pnpfos@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -62,6 +104,14 @@ jobs:
           client-secret: ${{ secrets.CWEB_CLIENT_SECRET }}
           oauth-token-endpoint: ${{ inputs.oauth-token-endpoint || 'https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token' }}
           package-id: '@connected-web/template-api-client'
-          # openapi-spec-file: 'src/post-deployment/openapi-spec.json'
           openapi-spec-url: ${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}
+          version: ${{ steps.version.outputs.version }}
+
+      - name: Publish API Client (Shared Authoriser mode)
+        if: ${{ steps.auth_mode.outputs.mode == 'shared-authoriser' }}
+        uses: connected-web/pnpfos@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          package-id: '@connected-web/template-api-client'
+          openapi-spec-file: '/tmp/template-api-openapi.json'
           version: ${{ steps.version.outputs.version }}
