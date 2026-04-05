@@ -78,7 +78,7 @@ jobs:
           set -euo pipefail
           test -n "${CWEB_CLIENT_ID:-}"
           test -n "${CWEB_CLIENT_SECRET:-}"
-          mkdir -p .tmp
+          OPENAPI_FILE="/tmp/template-api-openapi.json"
           AUTH_HEADER="$(node - <<'NODE'
           const crypto = require('crypto')
           const clientId = process.env.CWEB_CLIENT_ID || ''
@@ -92,8 +92,8 @@ jobs:
           )"
           curl --fail --silent --show-error \
             -H "Authorization: ${AUTH_HEADER}" \
-            "${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}" > .tmp/openapi.json
-          test -s .tmp/openapi.json
+            "${{ inputs.openapi-spec-url || 'https://template-api.dev.connected-web.services/openapi' }}" > "$OPENAPI_FILE"
+          test -s "$OPENAPI_FILE"
 
       - name: Publish API Client (OAuth URL mode)
         if: ${{ steps.auth_mode.outputs.mode == 'cognito' }}
@@ -113,5 +113,5 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           package-id: '@connected-web/template-api-client'
-          openapi-spec-file: '.tmp/openapi.json'
+          openapi-spec-file: '/tmp/template-api-openapi.json'
           version: ${{ steps.version.outputs.version }}
