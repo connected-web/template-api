@@ -221,6 +221,7 @@ jobs:
   publish-npm-client:
     name: Publish NPM Client
     needs: ['post-deployment-tests']
+    if: ${{ secrets.CWEB_CLIENT_TYPE == '' || startsWith(secrets.CWEB_CLIENT_TYPE, 'Cognito/') }}
     uses: ./.github/workflows/publish-npm-client.yml
     with:
       environment-name: dev
