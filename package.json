@@ -19,5 +19,8 @@
   ],
   "devDependencies": {
     "@types/node": "^25.3.0"
+  },
+  "dependencies": {
+    "@connected-web/openapi-rest-api": "^0.8.5"
   }
 }
