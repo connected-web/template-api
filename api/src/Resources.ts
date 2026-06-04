@@ -23,11 +23,15 @@ export class Resources {
   scope: Construct
   stack: cdk.Stack
   config: StackParameters
+  releaseTag: cdk.CfnParameter
+  packageVersion: cdk.CfnParameter
 
-  constructor (scope: Construct, stack: cdk.Stack, config: StackParameters) {
+  constructor (scope: Construct, stack: cdk.Stack, config: StackParameters, cfnParams?: { releaseTag: cdk.CfnParameter, packageVersion: cdk.CfnParameter }) {
     this.scope = scope
     this.stack = stack
     this.config = config
+    this.releaseTag = cfnParams?.releaseTag ?? new cdk.CfnParameter(stack, 'RELEASE_TAG_DEFAULT', { type: 'String', default: '' })
+    this.packageVersion = cfnParams?.packageVersion ?? new cdk.CfnParameter(stack, 'PACKAGE_VERSION_DEFAULT', { type: 'String', default: '' })
   }
 
   get serviceBucket (): s3.Bucket {

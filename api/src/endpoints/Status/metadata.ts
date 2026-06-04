@@ -10,8 +10,9 @@ import { ApiResponse } from '../../models/ApiResponse'
 /* This section is for route metadata used by CDK to create the stack that will host your endpoint */
 export class StatusEndpoint extends OpenAPIRouteMetadata<Resources> {
   grantPermissions (scope: Construct, endpoint: NodejsFunction, resources: Resources): void {
-    const serviceBucket = resources.serviceBucket
-    serviceBucket.grantRead(endpoint)
+    resources.serviceBucket.grantRead(endpoint)
+    endpoint.addEnvironment('RELEASE_TAG', resources.releaseTag.valueAsString)
+    endpoint.addEnvironment('PACKAGE_VERSION', resources.packageVersion.valueAsString)
   }
 
   get operationId (): string {
@@ -27,11 +28,11 @@ export class StatusEndpoint extends OpenAPIRouteMetadata<Resources> {
   }
 
   get lambdaConfig (): NodejsFunctionProps {
+    const buildVersion = process.env.STATUS_BUILD_VERSION ?? process.env.GITHUB_SHA?.slice(0, 8) ?? process.env.npm_package_version ?? 'unknown'
     return {
       environment: {
-        STATUS_INFO: JSON.stringify({
-          deploymentTime: process.env.USE_MOCK_TIME ?? new Date()
-        })
+        STATUS_DEPLOYMENT_TIME: process.env.STATUS_DEPLOYMENT_TIME ?? process.env.USE_MOCK_TIME ?? new Date().toISOString(),
+        STATUS_BUILD_VERSION: buildVersion
       }
     }
   }

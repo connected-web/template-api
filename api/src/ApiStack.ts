@@ -60,9 +60,11 @@ export class ApiStack extends cdk.Stack {
       type: 'String',
       default: config.identity.authorizerArn
     })
+    const releaseTagParameter = new cdk.CfnParameter(this, 'RELEASE_TAG', { type: 'String', default: '' })
+    const packageVersionParameter = new cdk.CfnParameter(this, 'PACKAGE_VERSION', { type: 'String', default: '' })
 
     // Create shared resources
-    const sharedResources = new Resources(scope, this, config)
+    const sharedResources = new Resources(scope, this, config, { releaseTag: releaseTagParameter, packageVersion: packageVersionParameter })
 
     // Disable OpenAPIRestAPI's internal hosted-zone lookup path; we provision custom domain via HostedZoneId.
     process.env.CREATE_CNAME_RECORD = 'false'
