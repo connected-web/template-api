@@ -41,6 +41,7 @@ const mergedConfig: Record<string, any> = {
       ''
   }
 }
+const gatewayResponseDebug = mergedConfig.gatewayResponseDebug === true || mergedConfig.GatewayResponseDebug === true
 const accountId = AWS_ACCOUNT_ID
 
 console.log('Account config:', { accountProfile, accountId, accountConfig: mergedConfig })
@@ -60,6 +61,7 @@ const stackTemplate = new ApiStack(app, 'TemplateApiStack', {
   subdomain,
   hostedZoneDomain: mergedConfig.hostedZoneDomain ?? mergedConfig.HostedZoneDomain ?? 'dev.connected-web.services',
   hostedZoneId: mergedConfig.hostedZoneId ?? mergedConfig.HostedZoneId ?? '',
+  gatewayResponseDebug,
   identity: {
     authorizerArn: mergedConfig?.identity?.authorizerArn ?? ''
   }

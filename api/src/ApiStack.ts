@@ -9,6 +9,7 @@ import { OpenAPIRestAPI, OpenAPIBasicModels } from '@connected-web/openapi-rest-
 import { Resources } from './Resources'
 import { StatusEndpoint } from './endpoints/Status/metadata'
 import { OpenAPISpecEndpoint } from './endpoints/OpenAPISpec/metadata'
+import { applyStandardGatewayResponses } from './helpers/StandardResponseCodes'
 
 export interface IdentityConfig {
   authorizerArn: string
@@ -19,6 +20,7 @@ export interface StackParameters {
   hostedZoneDomain: string
   hostedZoneId?: string
   identity: IdentityConfig
+  gatewayResponseDebug?: boolean
 }
 
 /**
@@ -59,6 +61,10 @@ export class ApiStack extends cdk.Stack {
     const identityAuthorizerArnParameter = new cdk.CfnParameter(this, 'IDENTITY_AUTHORIZER_ARN', {
       type: 'String',
       default: config.identity.authorizerArn
+    })
+    const gatewayResponseDebugParameter = new cdk.CfnParameter(this, 'GATEWAY_RESPONSE_DEBUG', {
+      type: 'String',
+      default: config.gatewayResponseDebug === true ? 'true' : 'false'
     })
     const releaseTagParameter = new cdk.CfnParameter(this, 'RELEASE_TAG', { type: 'String', default: '' })
     const packageVersionParameter = new cdk.CfnParameter(this, 'PACKAGE_VERSION', { type: 'String', default: '' })
@@ -131,6 +137,10 @@ export class ApiStack extends cdk.Stack {
 
     // Kick of dependency injection for shared models and model factory
     OpenAPIBasicModels.setup(this, apiGateway.restApi)
+
+    applyStandardGatewayResponses(this, apiGateway.restApi, {
+      debug: gatewayResponseDebugParameter.valueAsString === 'true'
+    })
 
     // Add endpoints to API
     apiGateway
