@@ -38,7 +38,8 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
+      HOSTED_ZONE_DOMAIN: ${{ vars.HOSTED_ZONE_DOMAIN }}
+      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
       TARGET_PROFILE: dev
       TARGET_INSTANCE_ID: template-api
       RELEASE_TYPE: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'release-candidate' || 'release') || inputs.release_type }}
@@ -78,7 +79,11 @@ jobs:
               PACKAGE_VERSION="$TAG"
               ;;
             release-candidate)
-              PACKAGE_VERSION="${TAG}-rc.${GITHUB_RUN_NUMBER}"
+              if [[ "$TAG" == *-rc.* ]]; then
+                PACKAGE_VERSION="$TAG"
+              else
+                PACKAGE_VERSION="${TAG}-rc.${GITHUB_RUN_NUMBER}"
+              fi
               ;;
             *)
               echo "Unsupported release type: $RELEASE_TYPE" >&2
@@ -88,41 +93,23 @@ jobs:
 
           echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> "$GITHUB_ENV"
 
-      - name: Resolve account config
-        run: cweb configure -p "$TARGET_PROFILE" --write-github-env
-
-      - name: Login cweb machine identity
-        run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" --get-access-token --machine > /dev/null
-
       - name: Resolve deploy config
         run: |
           set -euo pipefail
-          if jq -e . >/dev/null 2>&1 <<<"$AWS_ACCOUNT_CONFIG"; then
-            ACCOUNT_CONFIG_JSON="$AWS_ACCOUNT_CONFIG"
-          else
-            ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
-          fi
-
-          AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-$(jq -r '.identity.authorizerArn // empty' <<<"$ACCOUNT_CONFIG_JSON")}"
-          HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-          HOSTED_ZONE_ID="$(jq -r '.hostedZoneId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-
           if [ -z "$HOSTED_ZONE_DOMAIN" ] || [ -z "$AUTHORIZER_ARN" ]; then
-            echo "Unable to resolve HostedZoneDomain or IDENTITY_AUTHORIZER_ARN from cweb account config." >&2
+            echo "Missing HOSTED_ZONE_DOMAIN or IDENTITY_AUTHORIZER_ARN workflow vars." >&2
             exit 1
           fi
 
           DEPLOY_CONFIG_JSON="$(jq -cn \
             --arg subdomain "$TARGET_INSTANCE_ID" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
-            --arg hostedZoneId "$HOSTED_ZONE_ID" \
             --arg authorizerArn "$AUTHORIZER_ARN" \
             '{
               Subdomain: $subdomain,
               HostedZoneDomain: $hostedZoneDomain,
               IDENTITY_AUTHORIZER_ARN: $authorizerArn
-            }
-            + (if ($hostedZoneId | length) > 0 then { HostedZoneId: $hostedZoneId } else {} end)')"
+            }')"
 
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
           echo "DEPLOY_BASE_URL=https://${TARGET_INSTANCE_ID}.${HOSTED_ZONE_DOMAIN}" >> "$GITHUB_ENV"
@@ -166,7 +153,8 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
+      HOSTED_ZONE_DOMAIN: ${{ vars.HOSTED_ZONE_DOMAIN }}
+      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
       TARGET_PROFILE: prod
       TARGET_INSTANCE_ID: template-api
       RELEASE_TYPE: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'release-candidate' || 'release') || inputs.release_type }}
@@ -206,7 +194,11 @@ jobs:
               PACKAGE_VERSION="$TAG"
               ;;
             release-candidate)
-              PACKAGE_VERSION="${TAG}-rc.${GITHUB_RUN_NUMBER}"
+              if [[ "$TAG" == *-rc.* ]]; then
+                PACKAGE_VERSION="$TAG"
+              else
+                PACKAGE_VERSION="${TAG}-rc.${GITHUB_RUN_NUMBER}"
+              fi
               ;;
             *)
               echo "Unsupported release type: $RELEASE_TYPE" >&2
@@ -216,41 +208,23 @@ jobs:
 
           echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> "$GITHUB_ENV"
 
-      - name: Resolve account config
-        run: cweb configure -p "$TARGET_PROFILE" --write-github-env
-
-      - name: Login cweb machine identity
-        run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" --get-access-token --machine > /dev/null
-
       - name: Resolve deploy config
         run: |
           set -euo pipefail
-          if jq -e . >/dev/null 2>&1 <<<"$AWS_ACCOUNT_CONFIG"; then
-            ACCOUNT_CONFIG_JSON="$AWS_ACCOUNT_CONFIG"
-          else
-            ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
-          fi
-
-          AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-$(jq -r '.identity.authorizerArn // empty' <<<"$ACCOUNT_CONFIG_JSON")}"
-          HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-          HOSTED_ZONE_ID="$(jq -r '.hostedZoneId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-
           if [ -z "$HOSTED_ZONE_DOMAIN" ] || [ -z "$AUTHORIZER_ARN" ]; then
-            echo "Unable to resolve HostedZoneDomain or IDENTITY_AUTHORIZER_ARN from cweb account config." >&2
+            echo "Missing HOSTED_ZONE_DOMAIN or IDENTITY_AUTHORIZER_ARN workflow vars." >&2
             exit 1
           fi
 
           DEPLOY_CONFIG_JSON="$(jq -cn \
             --arg subdomain "$TARGET_INSTANCE_ID" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
-            --arg hostedZoneId "$HOSTED_ZONE_ID" \
             --arg authorizerArn "$AUTHORIZER_ARN" \
             '{
               Subdomain: $subdomain,
               HostedZoneDomain: $hostedZoneDomain,
               IDENTITY_AUTHORIZER_ARN: $authorizerArn
-            }
-            + (if ($hostedZoneId | length) > 0 then { HostedZoneId: $hostedZoneId } else {} end)')"
+            }')"
 
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
 
