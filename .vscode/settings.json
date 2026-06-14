@@ -1,0 +1,11 @@
+{
+    "workbench.colorCustomizations": {
+        "statusBar.background": "#8B5B7C",
+        "statusBar.foreground": "#ffffff",
+        "titleBar.activeBackground": "#6B4760",
+        "titleBar.activeForeground": "#ffffff",
+        "activityBar.background": "#5B384D",
+        "activityBar.foreground": "#ffffff"
+    },
+    "window.title": "🍰 template-api - ${activeEditorShort}"
+}
