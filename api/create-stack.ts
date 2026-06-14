@@ -14,18 +14,13 @@ const {
 
 const accountProfile = ACCOUNT_PROFILE
 const raw = AWS_ACCOUNT_CONFIG ?? ''
-const parseAccountConfig = (value: string): Record<string, any> => {
-  if (value === '') return {}
-
-  const trimmed = value.trim()
-  if (trimmed.startsWith('{')) {
-    return JSON.parse(trimmed)
-  }
-
+const parseConfig = (value: string): Record<string, any> => {
+  if (value.trim() === '') return {}
+  if (value.trim().startsWith('{')) return JSON.parse(value)
   return JSON.parse(Buffer.from(value, 'base64').toString('utf8'))
 }
-const accountConfig = parseAccountConfig(raw)
-const deployConfig = parseAccountConfig(DEPLOY_CONFIG ?? '')
+const accountConfig = parseConfig(raw)
+const deployConfig = parseConfig(DEPLOY_CONFIG ?? '')
 const mergedConfig: Record<string, any> = {
   ...accountConfig,
   ...deployConfig,
@@ -34,14 +29,12 @@ const mergedConfig: Record<string, any> = {
     ...(deployConfig?.identity ?? {}),
     authorizerArn:
       deployConfig?.IDENTITY_AUTHORIZER_ARN ??
-      deployConfig?.IDENTITYAUTHORIZERARN ??
       deployConfig?.IdentityAuthorizerArn ??
       deployConfig?.identity?.authorizerArn ??
       accountConfig?.identity?.authorizerArn ??
       ''
   }
 }
-const gatewayResponseDebug = mergedConfig.gatewayResponseDebug === true || mergedConfig.GatewayResponseDebug === true
 const accountId = AWS_ACCOUNT_ID
 
 console.log('Account config:', { accountProfile, accountId, accountConfig: mergedConfig })
@@ -61,7 +54,6 @@ const stackTemplate = new ApiStack(app, 'TemplateApiStack', {
   subdomain,
   hostedZoneDomain: mergedConfig.hostedZoneDomain ?? mergedConfig.HostedZoneDomain ?? 'dev.connected-web.services',
   hostedZoneId: mergedConfig.hostedZoneId ?? mergedConfig.HostedZoneId ?? '',
-  gatewayResponseDebug,
   identity: {
     authorizerArn: mergedConfig?.identity?.authorizerArn ?? ''
   }

@@ -1,7 +1,5 @@
 import * as cdk from 'aws-cdk-lib'
-import { Certificate, CertificateValidation } from 'aws-cdk-lib/aws-certificatemanager'
 import { CfnPermission } from 'aws-cdk-lib/aws-lambda'
-import { CnameRecord, HostedZone } from 'aws-cdk-lib/aws-route53'
 
 import { Construct } from 'constructs'
 import { OpenAPIRestAPI, OpenAPIBasicModels } from '@connected-web/openapi-rest-api'
@@ -9,7 +7,6 @@ import { OpenAPIRestAPI, OpenAPIBasicModels } from '@connected-web/openapi-rest-
 import { Resources } from './Resources'
 import { StatusEndpoint } from './endpoints/Status/metadata'
 import { OpenAPISpecEndpoint } from './endpoints/OpenAPISpec/metadata'
-import { applyStandardGatewayResponses } from './helpers/StandardResponseCodes'
 
 export interface IdentityConfig {
   authorizerArn: string
@@ -20,7 +17,6 @@ export interface StackParameters {
   hostedZoneDomain: string
   hostedZoneId?: string
   identity: IdentityConfig
-  gatewayResponseDebug?: boolean
 }
 
 /**
@@ -58,22 +54,14 @@ export class ApiStack extends cdk.Stack {
       type: 'String',
       default: config.hostedZoneId ?? ''
     })
+    hostedZoneIdParameter.node.addMetadata('cweb:deployConfig', 'HostedZoneId')
     const identityAuthorizerArnParameter = new cdk.CfnParameter(this, 'IDENTITY_AUTHORIZER_ARN', {
       type: 'String',
       default: config.identity.authorizerArn
     })
-    const gatewayResponseDebugParameter = new cdk.CfnParameter(this, 'GATEWAY_RESPONSE_DEBUG', {
-      type: 'String',
-      default: config.gatewayResponseDebug === true ? 'true' : 'false'
-    })
-    const releaseTagParameter = new cdk.CfnParameter(this, 'RELEASE_TAG', { type: 'String', default: '' })
-    const packageVersionParameter = new cdk.CfnParameter(this, 'PACKAGE_VERSION', { type: 'String', default: '' })
 
     // Create shared resources
-    const sharedResources = new Resources(scope, this, config, { releaseTag: releaseTagParameter, packageVersion: packageVersionParameter })
-
-    // Disable OpenAPIRestAPI's internal hosted-zone lookup path; we provision custom domain via HostedZoneId.
-    process.env.CREATE_CNAME_RECORD = 'false'
+    const sharedResources = new Resources(scope, this, config)
 
     // Create API Gateway
     const apiGateway = new OpenAPIRestAPI<Resources>(this, 'Template API', {
@@ -84,63 +72,15 @@ export class ApiStack extends cdk.Stack {
       Verifiers: []
     }, sharedResources)
 
-    // When using an imported/shared authorizer by ARN, API Gateway permission is not
-    // always auto-added for unresolved ARNs. Grant invoke permission explicitly.
     const authorizerInvokePermission = new CfnPermission(this, 'AllowApiGatewayInvokeSharedAuthorizer', {
       action: 'lambda:InvokeFunction',
       functionName: identityAuthorizerArnParameter.valueAsString,
       principal: 'apigateway.amazonaws.com'
     })
-
-    const hostedZone = HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
-      hostedZoneId: hostedZoneIdParameter.valueAsString,
-      zoneName: hostedZoneDomainParameter.valueAsString
-    })
-    const vanityDomain = `${subdomainParameter.valueAsString}.${hostedZoneDomainParameter.valueAsString}`
-    const cert = new Certificate(this, 'ApiDomainCertificate', {
-      domainName: vanityDomain,
-      validation: CertificateValidation.fromDns(hostedZone)
-    })
-    const domain = apiGateway.restApi.addDomainName('ApiDomainName', {
-      domainName: vanityDomain,
-      certificate: cert
-    })
-    const apiCnameRecord = new CnameRecord(this, 'ApiCnameRecord', {
-      domainName: domain.domainNameAliasDomainName,
-      zone: hostedZone,
-      recordName: vanityDomain,
-      ttl: cdk.Duration.minutes(5)
-    })
-
-    const apiBaseUrl = `https://${vanityDomain}`
-    const apiOutputs = [
-      new cdk.CfnOutput(this, 'ApiBaseUrl', {
-        value: apiBaseUrl,
-        description: 'Custom-domain API base URL for consumers'
-      }),
-      new cdk.CfnOutput(this, 'OpenAPISpecEndpoint', {
-        value: `${apiBaseUrl}/openapi`,
-        description: 'Custom-domain OpenAPI endpoint'
-      }),
-      new cdk.CfnOutput(this, 'StatusEndpoint', {
-        value: `${apiBaseUrl}/status`,
-        description: 'Custom-domain status endpoint'
-      }),
-      new cdk.CfnOutput(this, 'ApiGatewayEndpoint', {
-        value: apiGateway.restApi.url,
-        description: 'Execute API endpoint (debug)'
-      })
-    ]
-
-    const stackOutputs = [apiCnameRecord, authorizerInvokePermission, ...apiOutputs]
-    console.log('Created stack outputs:', stackOutputs.length)
+    authorizerInvokePermission.node.addDependency(apiGateway.restApi)
 
     // Kick of dependency injection for shared models and model factory
     OpenAPIBasicModels.setup(this, apiGateway.restApi)
-
-    applyStandardGatewayResponses(this, apiGateway.restApi, {
-      debug: gatewayResponseDebugParameter.valueAsString === 'true'
-    })
 
     // Add endpoints to API
     apiGateway

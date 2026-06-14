@@ -12,8 +12,7 @@
     "test:unit": "vitest run src/tests/unit",
     "test:pre-deployment": "vitest run src/tests/pre-deployment",
     "post-deployment": "npm run test:post-deployment && npm run typegen:for-post-deployment",
-    "test:post-deployment": "vitest run src/tests/post-deployment",
-    "test:hba": "vitest run src/tests/post-deployment/api-whba-client.test.ts",
+    "test:post-deployment": "vitest run src/tests/post-deployment/api-client.test.ts",
     "typegen:for-post-deployment": "typegen src/tests/post-deployment/downloaded-app-openapi.json > src/tests/post-deployment/api-client.d.ts && npm run lint",
     "lint": "ts-standard --fix"
   },

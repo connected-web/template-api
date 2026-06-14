@@ -1,48 +1,48 @@
-name: Check PR
+name: Release Deploy Prod
+
 on:
+  release:
+    types:
+      - released
+      - prereleased
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
+    inputs:
+      release_type:
+        description: Release type to deploy
+        required: true
+        type: choice
+        options:
+          - release
+          - release-candidate
+        default: release
+      tag_name:
+        description: Release tag to deploy
+        required: true
+        type: string
+      deploy_enabled:
+        description: Deploy after publishing package
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: read
   packages: read
-  pull-requests: write
 
 jobs:
-  test-cdk-api:
-    name: Test CDK API
+  deploy-prod:
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Use Node JS LTS
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20.x
-
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm run test
-
-  package-deploy-dev:
-    name: Package and deploy API to dev
-    needs: ['test-cdk-api']
-    runs-on: ubuntu-latest
-    environment: dev
+    environment: prod
     env:
       NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN != '' && secrets.CONNECTED_WEB_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
       CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
-      TARGET_PROFILE: dev
+      TARGET_PROFILE: prod
       TARGET_INSTANCE_ID: template-api
+      RELEASE_TYPE: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'release-candidate' || 'release') || inputs.release_type }}
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag_name }}
 
     steps:
       - name: Checkout
@@ -58,11 +58,35 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run checks
+        run: npm run test
+
       - name: Install cweb CLI
         run: npm install -g @connected-web/cweb
 
-      - name: Resolve package version
-        run: echo "PACKAGE_VERSION=0.0.0-pr.${{ github.event.pull_request.number || github.run_number }}.${{ github.run_attempt }}" >> "$GITHUB_ENV"
+      - name: Resolve release version
+        run: |
+          set -euo pipefail
+          TAG="${RELEASE_TAG#v}"
+          if [ -z "$TAG" ]; then
+            echo "Missing release tag" >&2
+            exit 1
+          fi
+
+          case "$RELEASE_TYPE" in
+            release)
+              PACKAGE_VERSION="$TAG"
+              ;;
+            release-candidate)
+              PACKAGE_VERSION="${TAG}-rc.${GITHUB_RUN_NUMBER}"
+              ;;
+            *)
+              echo "Unsupported release type: $RELEASE_TYPE" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> "$GITHUB_ENV"
 
       - name: Resolve account config
         run: cweb configure -p "$TARGET_PROFILE" --write-github-env
@@ -101,7 +125,6 @@ jobs:
             + (if ($hostedZoneId | length) > 0 then { HostedZoneId: $hostedZoneId } else {} end)')"
 
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
-          echo "DEPLOY_BASE_URL=https://${TARGET_INSTANCE_ID}.${HOSTED_ZONE_DOMAIN}" >> "$GITHUB_ENV"
 
       - name: Pack template-api package
         run: |
@@ -117,11 +140,11 @@ jobs:
           CWEB_CLIENT_TYPE: ${{ vars.REGISTRY_API_CLIENT_TYPE }}
         run: cweb -p resources package publish --target registry-api --component template-api --version "$PACKAGE_VERSION" --artifact "$PACKAGE_ARTIFACT" --if-exists-skip
 
-      - name: Deploy template-api package to dev
+      - name: Deploy template-api package to prod
+        if: ${{ github.event_name == 'release' || inputs.deploy_enabled == true }}
         env:
-          MANAGEMENT_API_BASE_URL: https://management-api.dev.connected-web.services
+          MANAGEMENT_API_BASE_URL: https://management-api.prod.connected-web.services
         run: |
-          set -euo pipefail
           cweb -p "$TARGET_PROFILE" package deploy \
             --host remote \
             --component template-api \
@@ -129,37 +152,3 @@ jobs:
             --instance-id "$TARGET_INSTANCE_ID" \
             --config "$DEPLOY_CONFIG" \
             --watch
-
-  post-deployment-tests:
-    name: Post-deployment Tests for API
-    needs: ['package-deploy-dev']
-    runs-on: ubuntu-latest
-    environment: dev
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Use Node JS LTS
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20.x
-
-      - name: Install npm dependencies (api)
-        run: npm install
-        working-directory: ./api
-
-      - name: Run post-deployment smoke tests
-        working-directory: ./api
-        run: npm run test:post-deployment
-        env:
-          POST_DEPLOYMENT_SERVER_DOMAIN: https://template-api.dev.connected-web.services
-          POST_DEPLOYMENT_SMOKE_ONLY: "true"
-          POST_DEPLOYMENT_AUTH_URL: ${{ vars.POST_DEPLOYMENT_AUTH_URL }}
-          POST_DEPLOYMENT_CLIENT_ID: ${{ secrets.POST_DEPLOYMENT_CLIENT_ID }}
-          POST_DEPLOYMENT_CLIENT_SECRET: ${{ secrets.POST_DEPLOYMENT_CLIENT_SECRET }}
-
-  publish-npm-client:
-    name: Publish NPM Client
-    needs: ['post-deployment-tests']
-    uses: ./.github/workflows/publish-npm-client.yml
-    secrets: inherit

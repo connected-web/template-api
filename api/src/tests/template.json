@@ -1,5 +1,88 @@
 {
+  "Parameters": {
+    "Subdomain": {
+      "Type": "String",
+      "Default": "test-api"
+    },
+    "HostedZoneDomain": {
+      "Type": "String",
+      "Default": "dummy.domain.name"
+    },
+    "HostedZoneId": {
+      "Type": "String",
+      "Default": ""
+    },
+    "IDENTITYAUTHORIZERARN": {
+      "Type": "String",
+      "Default": "arn:aws:lambda:eu-west-2:1234567890:function:TestAuthorizer"
+    },
+    "RELEASETAGDEFAULT": {
+      "Type": "String",
+      "Default": ""
+    },
+    "PACKAGEVERSIONDEFAULT": {
+      "Type": "String",
+      "Default": ""
+    },
+    "BootstrapVersion": {
+      "Type": "AWS::SSM::Parameter::Value<String>",
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+    }
+  },
   "Resources": {
+    "TemplateAPIExistingApiRequestAuthorizerB2BF5B31": {
+      "Type": "AWS::ApiGateway::Authorizer",
+      "Properties": {
+        "AuthorizerResultTtlInSeconds": 300,
+        "AuthorizerUri": {
+          "Fn::Join": [
+            "",
+            [
+              "arn:",
+              {
+                "Fn::Select": [
+                  1,
+                  {
+                    "Fn::Split": [
+                      ":",
+                      {
+                        "Ref": "IDENTITYAUTHORIZERARN"
+                      }
+                    ]
+                  }
+                ]
+              },
+              ":apigateway:",
+              {
+                "Fn::Select": [
+                  3,
+                  {
+                    "Fn::Split": [
+                      ":",
+                      {
+                        "Ref": "IDENTITYAUTHORIZERARN"
+                      }
+                    ]
+                  }
+                ]
+              },
+              ":lambda:path/2015-03-31/functions/",
+              {
+                "Ref": "IDENTITYAUTHORIZERARN"
+              },
+              "/invocations"
+            ]
+          ]
+        },
+        "IdentitySource": "method.request.header.Authorization",
+        "Name": "MyTestStackTemplateAPIExistingApiRequestAuthorizerED8C8F29",
+        "RestApiId": {
+          "Ref": "TemplateAPICE2A2E42"
+        },
+        "Type": "REQUEST"
+      }
+    },
     "TemplateAPICE2A2E42": {
       "Type": "AWS::ApiGateway::RestApi",
       "Properties": {
@@ -56,7 +139,7 @@
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
     },
-    "TemplateAPIDeploymentE23C5A28acb41f1fc30021c70a32c9ecbe955b67": {
+    "TemplateAPIDeploymentE23C5A28fb37fe54df11047355e9ab3d075c9320": {
       "Type": "AWS::ApiGateway::Deployment",
       "Properties": {
         "Description": "Template API - https://github.com/connected-web/template-api",
@@ -83,7 +166,7 @@
       "Type": "AWS::ApiGateway::Stage",
       "Properties": {
         "DeploymentId": {
-          "Ref": "TemplateAPIDeploymentE23C5A28acb41f1fc30021c70a32c9ecbe955b67"
+          "Ref": "TemplateAPIDeploymentE23C5A28fb37fe54df11047355e9ab3d075c9320"
         },
         "RestApiId": {
           "Ref": "TemplateAPICE2A2E42"
@@ -261,7 +344,10 @@
     "TemplateAPIstatusGET34D6BD01": {
       "Type": "AWS::ApiGateway::Method",
       "Properties": {
-        "AuthorizationType": "NONE",
+        "AuthorizationType": "CUSTOM",
+        "AuthorizerId": {
+          "Ref": "TemplateAPIExistingApiRequestAuthorizerB2BF5B31"
+        },
         "HttpMethod": "GET",
         "Integration": {
           "Credentials": {
@@ -438,7 +524,10 @@
     "TemplateAPIopenapiGETEB991BEB": {
       "Type": "AWS::ApiGateway::Method",
       "Properties": {
-        "AuthorizationType": "NONE",
+        "AuthorizationType": "CUSTOM",
+        "AuthorizerId": {
+          "Ref": "TemplateAPIExistingApiRequestAuthorizerB2BF5B31"
+        },
         "HttpMethod": "GET",
         "Integration": {
           "Credentials": {
@@ -628,11 +717,18 @@
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-1234567890-eu-west-2",
-          "S3Key": "1c044df2b01d3d87f2610187fa5204c31ea46aadda313a6f72fb0ba093bdd5dc.zip"
+          "S3Key": "e124fb592dd3298b9c7e420620d03ba2bfcf4cfb68f635f2acbbedb7c23bc03e.zip"
         },
         "Environment": {
           "Variables": {
-            "STATUS_INFO": "{\"deploymentTime\":\"2026-02-24T07:55:31.598Z\"}"
+            "STATUS_DEPLOYMENT_TIME": "2026-06-14T18:57:05.596Z",
+            "STATUS_BUILD_VERSION": "0.1.0",
+            "RELEASE_TAG": {
+              "Ref": "RELEASETAGDEFAULT"
+            },
+            "PACKAGE_VERSION": {
+              "Ref": "PACKAGEVERSIONDEFAULT"
+            }
           }
         },
         "Handler": "index.handler",
@@ -724,6 +820,34 @@
       "DependsOn": [
         "TemplateAPIGetOpenAPISpecServiceRoleDefaultPolicyBDBFBD5E",
         "TemplateAPIGetOpenAPISpecServiceRole2905E446"
+      ]
+    },
+    "AllowApiGatewayInvokeSharedAuthorizer": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Ref": "IDENTITYAUTHORIZERARN"
+        },
+        "Principal": "apigateway.amazonaws.com"
+      },
+      "DependsOn": [
+        "TemplateAPIAccountE066AC80",
+        "TemplateAPICloudWatchRole973DFC1C",
+        "TemplateAPIopenapiGETApiPermissionMyTestStackTemplateAPIE828004EGETopenapi1AE4EFAF",
+        "TemplateAPIopenapiGETApiPermissionTestMyTestStackTemplateAPIE828004EGETopenapi94C3AD53",
+        "TemplateAPIopenapiGETEB991BEB",
+        "TemplateAPIopenapiOPTIONSC7675E8D",
+        "TemplateAPIopenapi2F5F2234",
+        "TemplateAPIOPTIONS1705015A",
+        "TemplateAPIstatusGETApiPermissionMyTestStackTemplateAPIE828004EGETstatus1911D121",
+        "TemplateAPIstatusGETApiPermissionTestMyTestStackTemplateAPIE828004EGETstatus09E6FBA7",
+        "TemplateAPIstatusGET34D6BD01",
+        "TemplateAPIstatusOPTIONS594662FC",
+        "TemplateAPIstatusFF5FE3C7",
+        "TemplateAPIDeploymentE23C5A28fb37fe54df11047355e9ab3d075c9320",
+        "TemplateAPIDeploymentStagev19D1EF21E",
+        "TemplateAPICE2A2E42"
       ]
     },
     "ServiceDataBucketF7784159": {
@@ -941,13 +1065,6 @@
           ]
         ]
       }
-    }
-  },
-  "Parameters": {
-    "BootstrapVersion": {
-      "Type": "AWS::SSM::Parameter::Value<String>",
-      "Default": "/cdk-bootstrap/hnb659fds/version",
-      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
     }
   },
   "Rules": {

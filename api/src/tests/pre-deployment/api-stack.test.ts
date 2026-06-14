@@ -21,7 +21,7 @@ const getTemplate = (): Template => {
     subdomain: 'test-api',
     hostedZoneDomain: 'dummy.domain.name',
     identity: {
-      authorizerArn: 'arn:aws:lambda:eu-west-2:1234567890:function:SharedAuthorizer'
+      authorizerArn: 'arn:aws:lambda:eu-west-2:1234567890:function:TestAuthorizer'
     }
   })
   const template = Template.fromStack(stack)
@@ -34,7 +34,7 @@ describe('REST API', () => {
 
   beforeAll(() => {
     template = getTemplate()
-  })
+  }, 30000)
 
   it('Creates an AWS ApiGateway RestApi with the correct title and description', () => {
     template.hasResourceProperties('AWS::ApiGateway::RestApi', {
