@@ -43,8 +43,6 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      HOSTED_ZONE_DOMAIN: ${{ vars.HOSTED_ZONE_DOMAIN }}
-      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
 
     steps:
       - name: Checkout
@@ -98,11 +96,13 @@ jobs:
       - name: Resolve deploy config
         run: |
           set -euo pipefail
-          if [ -z "$HOSTED_ZONE_DOMAIN" ] || [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
-            echo "Missing HOSTED_ZONE_DOMAIN or IDENTITY_AUTHORIZER_ARN workflow vars." >&2
-            exit 1
+          if [ "$TARGET_PROFILE" = "dev" ]; then
+            HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-template-api.dev.connected-web.services}"
+            IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-arn:aws:lambda:eu-west-2:807726400201:function:CWEB-management-api-manag-ManagedIdentityAuthorize-F8oxeIR3A6Og}"
+          else
+            HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-template-api.prod.connected-web.services}"
+            IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-arn:aws:lambda:eu-west-2:794722618463:function:CWEB-management-api-manag-ManagedIdentityAuthorize-ibW9ZdRWnkJb}"
           fi
-
           if [ "${{ github.event_name }}" = "push" ]; then
             DEPLOY_INSTANCE_ID="template-api"
           else

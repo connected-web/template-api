@@ -44,8 +44,6 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      HOSTED_ZONE_DOMAIN: ${{ vars.HOSTED_ZONE_DOMAIN }}
-      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
       TARGET_PROFILE: dev
       TARGET_INSTANCE_ID: template-api
 
@@ -72,7 +70,9 @@ jobs:
       - name: Resolve deploy config
         run: |
           set -euo pipefail
-          if [ -z "$HOSTED_ZONE_DOMAIN" ] || [ -z "$AUTHORIZER_ARN" ]; then
+          HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-template-api.dev.connected-web.services}"
+          IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-arn:aws:lambda:eu-west-2:807726400201:function:CWEB-management-api-manag-ManagedIdentityAuthorize-F8oxeIR3A6Og}"
+          if [ -z "$HOSTED_ZONE_DOMAIN" ] || [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
             echo "Missing HOSTED_ZONE_DOMAIN or IDENTITY_AUTHORIZER_ARN workflow vars." >&2
             exit 1
           fi
@@ -80,7 +80,7 @@ jobs:
           DEPLOY_CONFIG_JSON="$(jq -cn \
             --arg subdomain "$TARGET_INSTANCE_ID" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
-            --arg authorizerArn "$AUTHORIZER_ARN" \
+            --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
             '{
               Subdomain: $subdomain,
               HostedZoneDomain: $hostedZoneDomain,
