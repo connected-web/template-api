@@ -914,20 +914,6 @@
     "ApiCnameRecord2222559D": {
       "Type": "AWS::Route53::RecordSet",
       "Properties": {
-        "AliasTarget": {
-          "DNSName": {
-            "Fn::GetAtt": [
-              "TemplateAPIApiDomainNameD185AB05",
-              "RegionalDomainName"
-            ]
-          },
-          "HostedZoneId": {
-            "Fn::GetAtt": [
-              "TemplateAPIApiDomainNameD185AB05",
-              "RegionalHostedZoneId"
-            ]
-          }
-        },
         "HostedZoneId": {
           "Ref": "HostedZoneId"
         },
@@ -946,7 +932,16 @@
             ]
           ]
         },
-        "Type": "A"
+        "ResourceRecords": [
+          {
+            "Fn::GetAtt": [
+              "TemplateAPIApiDomainNameD185AB05",
+              "RegionalDomainName"
+            ]
+          }
+        ],
+        "TTL": "300",
+        "Type": "CNAME"
       }
     },
     "AllowApiGatewayInvokeTemplateApiAuthorizer": {
