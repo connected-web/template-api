@@ -38,8 +38,7 @@
           "additionalProperties": false,
           "required": [
             "Subdomain",
-            "HostedZoneDomain",
-            "IDENTITY_AUTHORIZER_ARN"
+            "HostedZoneDomain"
           ],
           "properties": {
             "Subdomain": {

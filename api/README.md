@@ -32,7 +32,7 @@ It is designed as a simple, cheap to host, highly scalable API that can be used 
 
 GitHub Actions package this stack into a `.cweb.pkg`, publish the artifact to `registry-api`, and request remote deployment with `cweb package deploy --host remote`.
 
-The workflow does not assume AWS roles directly. Environment-specific values such as `HostedZoneDomain`, `HostedZoneId`, and `IDENTITY_AUTHORIZER_ARN` are supplied by Connected Web account configuration and the management API deployment worker.
+The workflow does not assume AWS roles directly. The workflow passes only package-specific deploy config such as `Subdomain` and `HostedZoneDomain`; environment-specific values such as `HostedZoneId` and `IDENTITY_AUTHORIZER_ARN` are supplied by Connected Web account configuration and the management API deployment worker.
 
 The stack still uses `@connected-web/openapi-rest-api` for API Gateway, route, model, and authorizer wiring. The custom domain, DNS record, and certificate are created in this stack from CloudFormation parameters so package synthesis does not need a Route53 hosted-zone lookup.
 
