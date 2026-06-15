@@ -605,7 +605,7 @@
           ]
         },
         "RegionalCertificateArn": {
-          "Ref": "ApiDomainCertificate"
+          "Ref": "ApiDomainCertificate0C6AEA7E"
         }
       }
     },
@@ -863,7 +863,7 @@
         "TemplateAPIGetOpenAPISpecServiceRole2905E446"
       ]
     },
-    "ApiDomainCertificate": {
+    "ApiDomainCertificate0C6AEA7E": {
       "Type": "AWS::CertificateManager::Certificate",
       "Properties": {
         "DomainName": {
@@ -904,7 +904,7 @@
         "ValidationMethod": "DNS"
       }
     },
-    "ApiCnameRecord": {
+    "ApiCnameRecord2222559D": {
       "Type": "AWS::Route53::RecordSet",
       "Properties": {
         "HostedZoneId": {

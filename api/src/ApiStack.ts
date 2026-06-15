@@ -88,6 +88,7 @@ export class ApiStack extends cdk.Stack {
         hostedZoneId: hostedZoneIdParameter.valueAsString
       }]
     })
+    certificate.overrideLogicalId('ApiDomainCertificate0C6AEA7E')
 
     const domainName = apiGateway.restApi.addDomainName('ApiDomainName', {
       domainName: vanityDomain,
@@ -101,6 +102,7 @@ export class ApiStack extends cdk.Stack {
       ttl: '300',
       resourceRecords: [domainName.domainNameAliasDomainName]
     })
+    cnameRecord.overrideLogicalId('ApiCnameRecord2222559D')
 
     const authorizerInvokePermission = new CfnPermission(this, 'AllowApiGatewayInvokeSharedAuthorizer', {
       action: 'lambda:InvokeFunction',
