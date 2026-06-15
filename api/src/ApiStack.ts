@@ -99,9 +99,11 @@ export class ApiStack extends cdk.Stack {
     const cnameRecord = new CfnRecordSet(this, 'ApiCnameRecord', {
       hostedZoneId: hostedZoneIdParameter.valueAsString,
       name: `${vanityDomain}.`,
-      type: 'CNAME',
-      ttl: '300',
-      resourceRecords: [domainName.domainNameAliasDomainName]
+      type: 'A',
+      aliasTarget: {
+        dnsName: domainName.domainNameAliasDomainName,
+        hostedZoneId: domainName.domainNameAliasHostedZoneId
+      }
     })
     cnameRecord.overrideLogicalId('ApiCnameRecord2222559D')
 

@@ -108,7 +108,21 @@ describe('REST API', () => {
       HostedZoneId: {
         Ref: 'HostedZoneId'
       },
-      Type: 'CNAME'
+      Type: 'A',
+      AliasTarget: {
+        DNSName: {
+          'Fn::GetAtt': [
+            'TemplateAPIApiDomainNameD185AB05',
+            'RegionalDomainName'
+          ]
+        },
+        HostedZoneId: {
+          'Fn::GetAtt': [
+            'TemplateAPIApiDomainNameD185AB05',
+            'RegionalHostedZoneId'
+          ]
+        }
+      }
     })
   })
 
