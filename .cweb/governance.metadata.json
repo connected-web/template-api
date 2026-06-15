@@ -38,7 +38,9 @@
           "additionalProperties": false,
           "required": [
             "Subdomain",
-            "HostedZoneDomain"
+            "HostedZoneDomain",
+            "IdentityAuthorizerArn",
+            "PACKAGEVERSIONDEFAULT"
           ],
           "properties": {
             "Subdomain": {
@@ -54,6 +56,13 @@
               "minLength": 1
             },
             "IdentityAuthorizerArn": {
+              "type": "string",
+              "minLength": 1
+            },
+            "RELEASETAGDEFAULT": {
+              "type": "string"
+            },
+            "PACKAGEVERSIONDEFAULT": {
               "type": "string",
               "minLength": 1
             }

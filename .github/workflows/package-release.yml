@@ -156,10 +156,14 @@ jobs:
             --arg subdomain "$DEPLOY_INSTANCE_ID" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
             --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
+            --arg releaseTag "$PACKAGE_VERSION" \
+            --arg packageVersion "$PACKAGE_VERSION" \
             '{
               Subdomain: $subdomain,
               HostedZoneDomain: $hostedZoneDomain,
-              IdentityAuthorizerArn: $authorizerArn
+              IdentityAuthorizerArn: $authorizerArn,
+              RELEASETAGDEFAULT: $releaseTag,
+              PACKAGEVERSIONDEFAULT: $packageVersion
             }')"
           echo "DEPLOY_INSTANCE_ID=$DEPLOY_INSTANCE_ID" >> "$GITHUB_ENV"
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"

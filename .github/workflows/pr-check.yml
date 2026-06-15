@@ -125,10 +125,13 @@ jobs:
             --arg subdomain "$TARGET_INSTANCE_ID" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
             --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
+            --arg packageVersion "$PACKAGE_VERSION" \
             '{
               Subdomain: $subdomain,
               HostedZoneDomain: $hostedZoneDomain,
-              IdentityAuthorizerArn: $authorizerArn
+              IdentityAuthorizerArn: $authorizerArn,
+              RELEASETAGDEFAULT: "",
+              PACKAGEVERSIONDEFAULT: $packageVersion
             }')"
 
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
@@ -159,4 +162,76 @@ jobs:
             --version "$PACKAGE_VERSION" \
             --instance-id "$TARGET_INSTANCE_ID" \
             --config "$DEPLOY_CONFIG" \
-            --view detailed
+            --view detailed \
+            --timeout 900 \
+            --watch
+
+      - name: Smoke test deployed API
+        env:
+          POST_DEPLOYMENT_SERVER_DOMAIN: ${{ env.DEPLOY_BASE_URL }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const dns = require('node:dns').promises
+          const https = require('node:https')
+
+          const baseUrl = process.env.POST_DEPLOYMENT_SERVER_DOMAIN
+          if (!baseUrl) throw new Error('POST_DEPLOYMENT_SERVER_DOMAIN is required')
+          const hostname = new URL(baseUrl).hostname
+          const deadline = Date.now() + 10 * 60 * 1000
+
+          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+          const requestJson = (url) => new Promise((resolve, reject) => {
+            const req = https.get(url, { timeout: 15000 }, (res) => {
+              let body = ''
+              res.setEncoding('utf8')
+              res.on('data', (chunk) => { body += chunk })
+              res.on('end', () => {
+                if (res.statusCode !== 200) {
+                  reject(new Error(`${url} returned ${res.statusCode}: ${body.slice(0, 500)}`))
+                  return
+                }
+                try {
+                  resolve(JSON.parse(body))
+                } catch (error) {
+                  reject(new Error(`${url} returned invalid JSON: ${error.message}`))
+                }
+              })
+            })
+            req.on('timeout', () => req.destroy(new Error(`${url} timed out`)))
+            req.on('error', reject)
+          })
+
+          ;(async () => {
+            let lastError
+            while (Date.now() < deadline) {
+              try {
+                await dns.resolve(hostname)
+                const openapi = await requestJson(`${baseUrl}/openapi`)
+                if (!openapi?.paths?.['/status']) throw new Error('/openapi did not include /status')
+                console.log('Public smoke checks passed:', { baseUrl })
+                return
+              } catch (error) {
+                lastError = error
+                console.log(`Waiting for deployed API: ${error.message}`)
+                await sleep(15000)
+              }
+            }
+            throw lastError ?? new Error('Timed out waiting for deployed API')
+          })().catch((error) => {
+            console.error(error)
+            process.exit(1)
+          })
+          NODE
+
+      - name: Verify deployed status metadata
+        run: |
+          set -euo pipefail
+          status_json="$(cweb -p "$TARGET_PROFILE" curl -sS "$DEPLOY_BASE_URL/status")"
+          actual_package_version="$(printf '%s' "$status_json" | jq -r '.packageVersion // empty')"
+          if [ "$actual_package_version" != "$PACKAGE_VERSION" ]; then
+            echo "Expected /status packageVersion '$PACKAGE_VERSION', got '$actual_package_version'." >&2
+            printf '%s\n' "$status_json" >&2
+            exit 1
+          fi
+          printf '%s\n' "$status_json" | jq '{ok, service, releaseTag, packageVersion, buildVersion}'
