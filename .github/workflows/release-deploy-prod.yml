@@ -38,6 +38,7 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
+      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
       TARGET_PROFILE: dev
       TARGET_INSTANCE_ID: template-api
       RELEASE_TYPE: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'release-candidate' || 'release') || inputs.release_type }}
@@ -62,6 +63,40 @@ jobs:
 
       - name: Install cweb CLI
         run: npm install -g @connected-web/cweb
+
+      - name: Bootstrap cweb account config
+        run: |
+          set -euo pipefail
+          accounts_dir="$RUNNER_TEMP/cweb-accounts"
+          state_dir="$HOME/.cweb"
+          mkdir -p "$accounts_dir" "$state_dir"
+          curl -fsS https://management-ui.org.connected-web.services/known-accounts.json > "$RUNNER_TEMP/known-accounts.json"
+          node <<'NODE'
+          const fs = require('fs')
+          const os = require('os')
+          const path = require('path')
+          const manifest = JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'known-accounts.json'), 'utf8'))
+          const accountsDir = path.join(process.env.RUNNER_TEMP, 'cweb-accounts')
+          const aliases = {}
+          for (const account of manifest.accounts || []) {
+            if (!account.accountName || !account.environment) continue
+            aliases[account.environment] = account.accountName
+            fs.writeFileSync(path.join(accountsDir, `${account.accountName}.json`), JSON.stringify({
+              accountId: account.accountId,
+              accountName: account.accountName,
+              service: 'connected-web',
+              environment: account.environment,
+              parentZone: account.parentZone || 'connected-web.services',
+              rootZones: account.rootZones,
+              identity: manifest.identity
+            }, null, 2))
+          }
+          fs.writeFileSync(path.join(os.homedir(), '.cweb', 'state.json'), JSON.stringify({
+            lastAccountsDir: accountsDir,
+            profileAliases: aliases
+          }, null, 2))
+          NODE
+          echo "CWEB_ACCOUNTS_DIR=$accounts_dir" >> "$GITHUB_ENV"
 
       - name: Resolve release version
         run: |
@@ -99,13 +134,25 @@ jobs:
             echo "Missing HOSTED_ZONE_DOMAIN workflow var." >&2
             exit 1
           fi
+          IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
+          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
+            RUNTIME_CONTEXT_JSON="$(cweb -p "$TARGET_PROFILE" curl -sS "https://management-api.${HOSTED_ZONE_DOMAIN}/resources/runtime-context")"
+            IDENTITY_AUTHORIZER_ARN="$(printf '%s' "$RUNTIME_CONTEXT_JSON" | jq -r '.identity.authorizerArn // empty')"
+          fi
+          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
+            echo "Unable to resolve IDENTITY_AUTHORIZER_ARN from management-api runtime context." >&2
+            printf '%s\n' "${RUNTIME_CONTEXT_JSON:-}" >&2
+            exit 1
+          fi
 
           DEPLOY_CONFIG_JSON="$(jq -cn \
             --arg subdomain "$TARGET_INSTANCE_ID" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
+            --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
             '{
               Subdomain: $subdomain,
-              HostedZoneDomain: $hostedZoneDomain
+              HostedZoneDomain: $hostedZoneDomain,
+              IDENTITY_AUTHORIZER_ARN: $authorizerArn
             }')"
 
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
@@ -114,7 +161,7 @@ jobs:
       - name: Pack template-api package
         run: |
           artifact="/tmp/template-api-${PACKAGE_VERSION}.cweb.pkg"
-          cweb -p "$TARGET_PROFILE" package pack --component template-api --version "$PACKAGE_VERSION" --output "$artifact"
+          cweb package pack --component template-api --version "$PACKAGE_VERSION" --output "$artifact"
           echo "PACKAGE_ARTIFACT=$artifact" >> "$GITHUB_ENV"
 
       - name: Publish template-api package to registry
@@ -151,6 +198,7 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
+      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
       TARGET_PROFILE: prod
       TARGET_INSTANCE_ID: template-api
       RELEASE_TYPE: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'release-candidate' || 'release') || inputs.release_type }}
@@ -175,6 +223,40 @@ jobs:
 
       - name: Install cweb CLI
         run: npm install -g @connected-web/cweb
+
+      - name: Bootstrap cweb account config
+        run: |
+          set -euo pipefail
+          accounts_dir="$RUNNER_TEMP/cweb-accounts"
+          state_dir="$HOME/.cweb"
+          mkdir -p "$accounts_dir" "$state_dir"
+          curl -fsS https://management-ui.org.connected-web.services/known-accounts.json > "$RUNNER_TEMP/known-accounts.json"
+          node <<'NODE'
+          const fs = require('fs')
+          const os = require('os')
+          const path = require('path')
+          const manifest = JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'known-accounts.json'), 'utf8'))
+          const accountsDir = path.join(process.env.RUNNER_TEMP, 'cweb-accounts')
+          const aliases = {}
+          for (const account of manifest.accounts || []) {
+            if (!account.accountName || !account.environment) continue
+            aliases[account.environment] = account.accountName
+            fs.writeFileSync(path.join(accountsDir, `${account.accountName}.json`), JSON.stringify({
+              accountId: account.accountId,
+              accountName: account.accountName,
+              service: 'connected-web',
+              environment: account.environment,
+              parentZone: account.parentZone || 'connected-web.services',
+              rootZones: account.rootZones,
+              identity: manifest.identity
+            }, null, 2))
+          }
+          fs.writeFileSync(path.join(os.homedir(), '.cweb', 'state.json'), JSON.stringify({
+            lastAccountsDir: accountsDir,
+            profileAliases: aliases
+          }, null, 2))
+          NODE
+          echo "CWEB_ACCOUNTS_DIR=$accounts_dir" >> "$GITHUB_ENV"
 
       - name: Resolve release version
         run: |
@@ -212,13 +294,25 @@ jobs:
             echo "Missing HOSTED_ZONE_DOMAIN workflow var." >&2
             exit 1
           fi
+          IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
+          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
+            RUNTIME_CONTEXT_JSON="$(cweb -p "$TARGET_PROFILE" curl -sS "https://management-api.${HOSTED_ZONE_DOMAIN}/resources/runtime-context")"
+            IDENTITY_AUTHORIZER_ARN="$(printf '%s' "$RUNTIME_CONTEXT_JSON" | jq -r '.identity.authorizerArn // empty')"
+          fi
+          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
+            echo "Unable to resolve IDENTITY_AUTHORIZER_ARN from management-api runtime context." >&2
+            printf '%s\n' "${RUNTIME_CONTEXT_JSON:-}" >&2
+            exit 1
+          fi
 
           DEPLOY_CONFIG_JSON="$(jq -cn \
             --arg subdomain "$TARGET_INSTANCE_ID" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
+            --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
             '{
               Subdomain: $subdomain,
-              HostedZoneDomain: $hostedZoneDomain
+              HostedZoneDomain: $hostedZoneDomain,
+              IDENTITY_AUTHORIZER_ARN: $authorizerArn
             }')"
 
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
@@ -226,7 +320,7 @@ jobs:
       - name: Pack template-api package
         run: |
           artifact="/tmp/template-api-${PACKAGE_VERSION}.cweb.pkg"
-          cweb -p "$TARGET_PROFILE" package pack --component template-api --version "$PACKAGE_VERSION" --output "$artifact"
+          cweb package pack --component template-api --version "$PACKAGE_VERSION" --output "$artifact"
           echo "PACKAGE_ARTIFACT=$artifact" >> "$GITHUB_ENV"
 
       - name: Publish template-api package to registry
