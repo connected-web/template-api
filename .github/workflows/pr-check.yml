@@ -159,9 +159,7 @@ jobs:
             --version "$PACKAGE_VERSION" \
             --instance-id "$TARGET_INSTANCE_ID" \
             --config "$DEPLOY_CONFIG" \
-            --view detailed \
-            --timeout 900 \
-            --watch
+            --view detailed
 
   post-deployment-tests:
     name: Post-deployment Tests for API
@@ -180,6 +178,25 @@ jobs:
       - name: Install npm dependencies (api)
         run: npm install
         working-directory: ./api
+
+      - name: Wait for dev API readiness
+        run: |
+          set -euo pipefail
+          url="https://template-api.dev.connected-web.services/openapi"
+          for attempt in $(seq 1 180); do
+            status="$(curl -ksS -o /tmp/template-api-status.json -w '%{http_code}' "$url" || true)"
+            case "$status" in
+              200|401|403|404)
+                cat /tmp/template-api-status.json
+                exit 0
+                ;;
+            esac
+            echo "Waiting for $url (attempt ${attempt}/180, status ${status})"
+            sleep 10
+          done
+          echo "Timed out waiting for $url" >&2
+          cat /tmp/template-api-status.json >&2 || true
+          exit 1
 
       - name: Run post-deployment smoke tests
         working-directory: ./api
