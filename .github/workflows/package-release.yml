@@ -11,9 +11,9 @@ on:
         required: true
         type: choice
         options:
-          - connected-web-org
-          - connected-web-prod
-        default: connected-web-org
+          - dev
+          - prod
+        default: dev
       version:
         description: "Release version (without v prefix), required for manual runs"
         required: false
@@ -61,13 +61,10 @@ jobs:
       - name: Install cweb CLI
         run: npm install -g @connected-web/cweb
 
-      - name: Sync cweb accounts
-        run: cweb -p connected-web-org sync-accounts
-
       - name: Resolve account/profile
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            ACCOUNT="connected-web-org"
+            ACCOUNT="dev"
             VERSION="${GITHUB_REF_NAME#v}"
           else
             ACCOUNT="${{ github.event.inputs.account }}"
@@ -80,11 +77,11 @@ jobs:
           fi
 
           case "$ACCOUNT" in
-            connected-web-org)
-              PROFILE="connected-web-org"
+            dev)
+              PROFILE="dev"
               ;;
-            connected-web-prod)
-              PROFILE="connected-web-prod"
+            prod)
+              PROFILE="prod"
               ;;
             *)
               echo "Unsupported account: $ACCOUNT" >&2

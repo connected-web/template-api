@@ -44,7 +44,7 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      TARGET_PROFILE: connected-web-org
+      TARGET_PROFILE: dev
       TARGET_INSTANCE_ID: template-api
 
     steps:
@@ -63,9 +63,6 @@ jobs:
 
       - name: Install cweb CLI
         run: npm install -g @connected-web/cweb
-
-      - name: Sync cweb accounts
-        run: cweb -p connected-web-org sync-accounts
 
       - name: Resolve package version
         run: echo "PACKAGE_VERSION=0.0.0-pr.${{ github.event.pull_request.number || github.run_number }}.${{ github.run_attempt }}" >> "$GITHUB_ENV"

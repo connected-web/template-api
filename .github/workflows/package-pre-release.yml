@@ -8,8 +8,8 @@ on:
         required: true
         type: choice
         options:
-          - connected-web-org
-        default: connected-web-org
+          - dev
+        default: dev
       instance_id:
         description: "Deployment instance ID"
         required: true
@@ -57,9 +57,6 @@ jobs:
       - name: Install cweb CLI
         run: npm install -g @connected-web/cweb
 
-      - name: Sync cweb accounts
-        run: cweb -p connected-web-org sync-accounts
-
       - name: Resolve version
         run: |
           if [ -n "${{ github.event.inputs.version }}" ]; then
@@ -69,7 +66,7 @@ jobs:
           fi
 
       - name: Resolve profile for account
-        run: echo "TARGET_PROFILE=connected-web-org" >> "$GITHUB_ENV"
+        run: echo "TARGET_PROFILE=dev" >> "$GITHUB_ENV"
 
       - name: Resolve deploy config
         run: |
