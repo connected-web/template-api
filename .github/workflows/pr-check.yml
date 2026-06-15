@@ -172,17 +172,42 @@ jobs:
         run: |
           set -euo pipefail
           node <<'NODE'
-          const dns = require('node:dns').promises
+          const dns = require('node:dns')
+          const dnsPromises = dns.promises
+          const fs = require('node:fs')
           const https = require('node:https')
 
           const baseUrl = process.env.POST_DEPLOYMENT_SERVER_DOMAIN
           if (!baseUrl) throw new Error('POST_DEPLOYMENT_SERVER_DOMAIN is required')
-          const hostname = new URL(baseUrl).hostname
+          const url = new URL(baseUrl)
+          const hostname = url.hostname
+          const zoneName = hostname.split('.').slice(1).join('.')
           const deadline = Date.now() + 10 * 60 * 1000
 
           const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-          const requestJson = (url) => new Promise((resolve, reject) => {
-            const req = https.get(url, { timeout: 15000 }, (res) => {
+          const resolveAuthoritativeCname = async () => {
+            const nameservers = await dnsPromises.resolveNs(zoneName)
+            const nameserverAddresses = (await Promise.all(
+              nameservers.map(async (server) => dnsPromises.resolve4(server).catch(() => []))
+            )).flat()
+            if (nameserverAddresses.length === 0) {
+              throw new Error(`No IPv4 nameservers resolved for ${zoneName}`)
+            }
+            const resolver = new dnsPromises.Resolver()
+            resolver.setServers(nameserverAddresses)
+            const [cname] = await resolver.resolveCname(hostname)
+            if (!cname) throw new Error(`No CNAME returned for ${hostname}`)
+            return cname.replace(/\.$/, '')
+          }
+          const requestJson = (requestUrl, connectAddress) => new Promise((resolve, reject) => {
+            const req = https.get(requestUrl, {
+              timeout: 15000,
+              servername: hostname,
+              lookup: (_host, options, callback) => {
+                if (options?.all === true) callback(null, [{ address: connectAddress, family: 4 }])
+                else callback(null, connectAddress, 4)
+              }
+            }, (res) => {
               let body = ''
               res.setEncoding('utf8')
               res.on('data', (chunk) => { body += chunk })
@@ -206,10 +231,13 @@ jobs:
             let lastError
             while (Date.now() < deadline) {
               try {
-                await dns.resolve(hostname)
-                const openapi = await requestJson(`${baseUrl}/openapi`)
+                const cname = await resolveAuthoritativeCname()
+                const [address] = await dnsPromises.resolve4(cname)
+                if (!address) throw new Error(`No IPv4 address resolved for ${cname}`)
+                const openapi = await requestJson(`${baseUrl}/openapi`, address)
                 if (!openapi?.paths?.['/status']) throw new Error('/openapi did not include /status')
-                console.log('Public smoke checks passed:', { baseUrl })
+                fs.appendFileSync(process.env.GITHUB_ENV, `DEPLOY_CONNECT_TO_TARGET=${cname}\n`)
+                console.log('Public smoke checks passed:', { baseUrl, cname, address })
                 return
               } catch (error) {
                 lastError = error
@@ -227,7 +255,8 @@ jobs:
       - name: Verify deployed status metadata
         run: |
           set -euo pipefail
-          status_json="$(cweb -p "$TARGET_PROFILE" curl -sS "$DEPLOY_BASE_URL/status")"
+          deploy_host="$(node -e 'process.stdout.write(new URL(process.env.DEPLOY_BASE_URL).hostname)')"
+          status_json="$(cweb -p "$TARGET_PROFILE" curl --connect-to "${deploy_host}:443:${DEPLOY_CONNECT_TO_TARGET}:443" -sS "$DEPLOY_BASE_URL/status")"
           actual_package_version="$(printf '%s' "$status_json" | jq -r '.packageVersion // empty')"
           if [ "$actual_package_version" != "$PACKAGE_VERSION" ]; then
             echo "Expected /status packageVersion '$PACKAGE_VERSION', got '$actual_package_version'." >&2
