@@ -582,6 +582,47 @@
         }
       }
     },
+    "TemplateAPIApiDomainNameD185AB05": {
+      "Type": "AWS::ApiGateway::DomainName",
+      "Properties": {
+        "DomainName": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "Subdomain"
+              },
+              ".",
+              {
+                "Ref": "HostedZoneDomain"
+              }
+            ]
+          ]
+        },
+        "EndpointConfiguration": {
+          "Types": [
+            "REGIONAL"
+          ]
+        },
+        "RegionalCertificateArn": {
+          "Ref": "ApiDomainCertificate"
+        }
+      }
+    },
+    "TemplateAPIApiDomainNameMapMyTestStackTemplateAPIE828004E39192DD9": {
+      "Type": "AWS::ApiGateway::BasePathMapping",
+      "Properties": {
+        "DomainName": {
+          "Ref": "TemplateAPIApiDomainNameD185AB05"
+        },
+        "RestApiId": {
+          "Ref": "TemplateAPICE2A2E42"
+        },
+        "Stage": {
+          "Ref": "TemplateAPIDeploymentStagev19D1EF21E"
+        }
+      }
+    },
     "TemplateAPIApiExecutionRoleE18C505F": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -822,7 +863,7 @@
         "TemplateAPIGetOpenAPISpecServiceRole2905E446"
       ]
     },
-    "TemplateApiCertificate": {
+    "ApiDomainCertificate": {
       "Type": "AWS::CertificateManager::Certificate",
       "Properties": {
         "DomainName": {
@@ -863,62 +904,7 @@
         "ValidationMethod": "DNS"
       }
     },
-    "templateapidomainname": {
-      "Type": "AWS::ApiGateway::DomainName",
-      "Properties": {
-        "DomainName": {
-          "Fn::Join": [
-            "",
-            [
-              {
-                "Ref": "Subdomain"
-              },
-              ".",
-              {
-                "Ref": "HostedZoneDomain"
-              }
-            ]
-          ]
-        },
-        "EndpointConfiguration": {
-          "Types": [
-            "REGIONAL"
-          ]
-        },
-        "RegionalCertificateArn": {
-          "Ref": "TemplateApiCertificate"
-        }
-      }
-    },
-    "templateapibasepathmapping": {
-      "Type": "AWS::ApiGateway::BasePathMapping",
-      "Properties": {
-        "DomainName": {
-          "Fn::Join": [
-            "",
-            [
-              {
-                "Ref": "Subdomain"
-              },
-              ".",
-              {
-                "Ref": "HostedZoneDomain"
-              }
-            ]
-          ]
-        },
-        "RestApiId": {
-          "Ref": "TemplateAPICE2A2E42"
-        },
-        "Stage": {
-          "Ref": "TemplateAPIDeploymentStagev19D1EF21E"
-        }
-      },
-      "DependsOn": [
-        "templateapidomainname"
-      ]
-    },
-    "cnamerecord": {
+    "ApiCnameRecord": {
       "Type": "AWS::Route53::RecordSet",
       "Properties": {
         "HostedZoneId": {
@@ -942,17 +928,14 @@
         "ResourceRecords": [
           {
             "Fn::GetAtt": [
-              "templateapidomainname",
+              "TemplateAPIApiDomainNameD185AB05",
               "RegionalDomainName"
             ]
           }
         ],
         "TTL": "300",
         "Type": "CNAME"
-      },
-      "DependsOn": [
-        "templateapidomainname"
-      ]
+      }
     },
     "AllowApiGatewayInvokeSharedAuthorizer": {
       "Type": "AWS::Lambda::Permission",
@@ -981,6 +964,8 @@
       },
       "DependsOn": [
         "TemplateAPIAccountE066AC80",
+        "TemplateAPIApiDomainNameMapMyTestStackTemplateAPIE828004E39192DD9",
+        "TemplateAPIApiDomainNameD185AB05",
         "TemplateAPICloudWatchRole973DFC1C",
         "TemplateAPIopenapiGETApiPermissionMyTestStackTemplateAPIE828004EGETopenapi1AE4EFAF",
         "TemplateAPIopenapiGETApiPermissionTestMyTestStackTemplateAPIE828004EGETopenapi94C3AD53",

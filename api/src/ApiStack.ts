@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib'
-import * as apigateway from 'aws-cdk-lib/aws-apigateway'
-import { CfnCertificate } from 'aws-cdk-lib/aws-certificatemanager'
+import { Certificate, CfnCertificate } from 'aws-cdk-lib/aws-certificatemanager'
 import { CfnPermission } from 'aws-cdk-lib/aws-lambda'
 import { CfnRecordSet } from 'aws-cdk-lib/aws-route53'
 
@@ -81,7 +80,7 @@ export class ApiStack extends cdk.Stack {
     else delete process.env.CREATE_CNAME_RECORD
 
     const vanityDomain = `${subdomainParameter.valueAsString}.${hostedZoneDomainParameter.valueAsString}`
-    const certificate = new CfnCertificate(this, 'TemplateApiCertificate', {
+    const certificate = new CfnCertificate(this, 'ApiDomainCertificate', {
       domainName: vanityDomain,
       validationMethod: 'DNS',
       domainValidationOptions: [{
@@ -90,29 +89,18 @@ export class ApiStack extends cdk.Stack {
       }]
     })
 
-    const domainName = new apigateway.CfnDomainName(this, 'template-api-domain-name', {
+    const domainName = apiGateway.restApi.addDomainName('ApiDomainName', {
       domainName: vanityDomain,
-      endpointConfiguration: {
-        types: ['REGIONAL']
-      },
-      regionalCertificateArn: certificate.ref
+      certificate: Certificate.fromCertificateArn(this, 'ApiDomainCertificateRef', certificate.ref)
     })
 
-    const basePathMapping = new apigateway.CfnBasePathMapping(this, 'template-api-base-path-mapping', {
-      domainName: vanityDomain,
-      restApiId: apiGateway.restApi.restApiId,
-      stage: apiGateway.restApi.deploymentStage.stageName
-    })
-    basePathMapping.addDependency(domainName)
-
-    const cnameRecord = new CfnRecordSet(this, 'cname-record', {
+    const cnameRecord = new CfnRecordSet(this, 'ApiCnameRecord', {
       hostedZoneId: hostedZoneIdParameter.valueAsString,
       name: `${vanityDomain}.`,
       type: 'CNAME',
       ttl: '300',
-      resourceRecords: [domainName.attrRegionalDomainName]
+      resourceRecords: [domainName.domainNameAliasDomainName]
     })
-    cnameRecord.addDependency(domainName)
 
     const authorizerInvokePermission = new CfnPermission(this, 'AllowApiGatewayInvokeSharedAuthorizer', {
       action: 'lambda:InvokeFunction',
