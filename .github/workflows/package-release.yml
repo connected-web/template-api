@@ -159,7 +159,7 @@ jobs:
             '{
               Subdomain: $subdomain,
               HostedZoneDomain: $hostedZoneDomain,
-              IDENTITY_AUTHORIZER_ARN: $authorizerArn
+              IdentityAuthorizerArn: $authorizerArn
             }')"
           echo "DEPLOY_INSTANCE_ID=$DEPLOY_INSTANCE_ID" >> "$GITHUB_ENV"
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"

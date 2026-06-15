@@ -22,7 +22,7 @@ Registered URL: https://template-api.dev.connected-web.services
 
 Pull requests package `template-api` as a `.cweb.pkg`, publish that artifact to `registry-api`, and deploy the package to dev with `cweb package deploy --host remote`. Production deploys run from GitHub release and prerelease events and follow the same registry-first package flow.
 
-GitHub Actions do not assume AWS roles directly. The management API deployment worker supplies environment-specific deployment inputs, including the shared authorizer ARN.
+GitHub Actions do not assume AWS roles directly. The workflow supplies the platform authorizer ARN as package deploy config and the management API deployment worker supplies account-specific deployment inputs.
 
 ### Endpoints
 

@@ -28,8 +28,9 @@ const mergedConfig: Record<string, any> = {
     ...(accountConfig?.identity ?? {}),
     ...(deployConfig?.identity ?? {}),
     authorizerArn:
-      deployConfig?.IDENTITY_AUTHORIZER_ARN ??
+      process.env.IDENTITY_AUTHORIZER_ARN ??
       deployConfig?.IdentityAuthorizerArn ??
+      deployConfig?.IDENTITY_AUTHORIZER_ARN ??
       deployConfig?.identity?.authorizerArn ??
       accountConfig?.identity?.authorizerArn ??
       ''

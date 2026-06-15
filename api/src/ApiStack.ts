@@ -58,11 +58,10 @@ export class ApiStack extends cdk.Stack {
       default: config.hostedZoneId ?? ''
     })
     hostedZoneIdParameter.node.addMetadata('cweb:deployConfig', 'HostedZoneId')
-    const identityAuthorizerArnParameter = new cdk.CfnParameter(this, 'IDENTITY_AUTHORIZER_ARN', {
+    const identityAuthorizerArnParameter = new cdk.CfnParameter(this, 'IdentityAuthorizerArn', {
       type: 'String',
       default: config.identity.authorizerArn
     })
-    identityAuthorizerArnParameter.overrideLogicalId('IDENTITY_AUTHORIZER_ARN')
 
     // Create shared resources
     const sharedResources = new Resources(scope, this, config)

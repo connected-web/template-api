@@ -12,7 +12,7 @@
       "Type": "String",
       "Default": "Z1234567890"
     },
-    "IDENTITY_AUTHORIZER_ARN": {
+    "IdentityAuthorizerArn": {
       "Type": "String",
       "Default": "arn:aws:lambda:eu-west-2:1234567890:function:TestAuthorizer"
     },
@@ -47,7 +47,7 @@
                     "Fn::Split": [
                       ":",
                       {
-                        "Ref": "IDENTITY_AUTHORIZER_ARN"
+                        "Ref": "IdentityAuthorizerArn"
                       }
                     ]
                   }
@@ -61,7 +61,7 @@
                     "Fn::Split": [
                       ":",
                       {
-                        "Ref": "IDENTITY_AUTHORIZER_ARN"
+                        "Ref": "IdentityAuthorizerArn"
                       }
                     ]
                   }
@@ -69,7 +69,7 @@
               },
               ":lambda:path/2015-03-31/functions/",
               {
-                "Ref": "IDENTITY_AUTHORIZER_ARN"
+                "Ref": "IdentityAuthorizerArn"
               },
               "/invocations"
             ]
@@ -959,7 +959,7 @@
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
-          "Ref": "IDENTITY_AUTHORIZER_ARN"
+          "Ref": "IdentityAuthorizerArn"
         },
         "Principal": "apigateway.amazonaws.com",
         "SourceArn": {
