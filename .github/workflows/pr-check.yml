@@ -65,7 +65,7 @@ jobs:
         run: npm install -g @connected-web/cweb
 
       - name: Resolve package version
-        run: echo "PACKAGE_VERSION=0.0.0-pr.${{ github.event.pull_request.number || github.run_number }}.${{ github.run_attempt }}" >> "$GITHUB_ENV"
+        run: echo "PACKAGE_VERSION=0.0.0-pr.${{ github.event.pull_request.number || github.run_number }}.${{ github.run_number }}.${{ github.run_attempt }}" >> "$GITHUB_ENV"
 
       - name: Resolve deploy config
         run: |
