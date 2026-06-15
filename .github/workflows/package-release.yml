@@ -188,4 +188,5 @@ jobs:
             --instance-id "$DEPLOY_INSTANCE_ID" \
             --config "$DEPLOY_CONFIG" \
             --view detailed \
+            --timeout 900 \
             --watch

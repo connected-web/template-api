@@ -153,4 +153,5 @@ jobs:
             --instance-id "${{ github.event.inputs.instance_id }}" \
             --config "$DEPLOY_CONFIG" \
             --view detailed \
+            --timeout 900 \
             --watch

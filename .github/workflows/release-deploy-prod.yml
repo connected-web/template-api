@@ -183,6 +183,7 @@ jobs:
             --instance-id "$TARGET_INSTANCE_ID" \
             --config "$DEPLOY_CONFIG" \
             --view detailed \
+            --timeout 900 \
             --watch
 
       - name: Summary
@@ -343,6 +344,7 @@ jobs:
             --instance-id "$TARGET_INSTANCE_ID" \
             --config "$DEPLOY_CONFIG" \
             --view detailed \
+            --timeout 900 \
             --watch
 
       - name: Summary
