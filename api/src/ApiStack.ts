@@ -62,6 +62,7 @@ export class ApiStack extends cdk.Stack {
       type: 'String',
       default: config.identity.authorizerArn
     })
+    identityAuthorizerArnParameter.overrideLogicalId('IDENTITY_AUTHORIZER_ARN')
 
     // Create shared resources
     const sharedResources = new Resources(scope, this, config)

@@ -116,7 +116,7 @@ describe('REST API', () => {
     template.hasResourceProperties('AWS::Lambda::Permission', {
       Action: 'lambda:InvokeFunction',
       FunctionName: {
-        Ref: 'IDENTITYAUTHORIZERARN'
+        Ref: 'IDENTITY_AUTHORIZER_ARN'
       },
       Principal: 'apigateway.amazonaws.com',
       SourceArn: {
