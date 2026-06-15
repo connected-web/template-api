@@ -130,9 +130,9 @@ jobs:
       - name: Publish to registry
         env:
           REGISTRY_API_BASE_URL: https://registry-api.resources.connected-web.services
-          CWEB_CLIENT_ID: ${{ vars.REGISTRY_API_CLIENT_ID }}
-          CWEB_CLIENT_TYPE: ${{ vars.REGISTRY_API_CLIENT_TYPE }}
-          CWEB_CLIENT_SECRET: ${{ secrets.REGISTRY_API_CLIENT_SECRET }}
+          CWEB_CLIENT_ID: ${{ vars.REGISTRY_API_CLIENT_ID != '' && vars.REGISTRY_API_CLIENT_ID || secrets.CWEB_CLIENT_ID }}
+          CWEB_CLIENT_TYPE: ${{ vars.REGISTRY_API_CLIENT_TYPE != '' && vars.REGISTRY_API_CLIENT_TYPE || secrets.CWEB_CLIENT_TYPE }}
+          CWEB_CLIENT_SECRET: ${{ secrets.REGISTRY_API_CLIENT_SECRET != '' && secrets.REGISTRY_API_CLIENT_SECRET || secrets.CWEB_CLIENT_SECRET }}
         run: cweb -p "$TARGET_PROFILE" package publish --target registry-api --component template-api --version "$PACKAGE_VERSION" --artifact ".cweb/dist/template-api-${PACKAGE_VERSION}.cweb.pkg"
 
       - name: Deploy template-api package
