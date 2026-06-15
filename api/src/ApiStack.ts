@@ -104,7 +104,7 @@ export class ApiStack extends cdk.Stack {
     })
     cnameRecord.overrideLogicalId('ApiCnameRecord2222559D')
 
-    const authorizerInvokePermission = new CfnPermission(this, 'AllowApiGatewayInvokeSharedAuthorizer', {
+    const authorizerInvokePermission = new CfnPermission(this, 'AllowApiGatewayInvokeTemplateApiAuthorizer', {
       action: 'lambda:InvokeFunction',
       functionName: identityAuthorizerArnParameter.valueAsString,
       principal: 'apigateway.amazonaws.com',
