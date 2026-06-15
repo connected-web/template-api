@@ -142,7 +142,17 @@
     "TemplateAPIDeploymentE23C5A28fb37fe54df11047355e9ab3d075c9320": {
       "Type": "AWS::ApiGateway::Deployment",
       "Properties": {
-        "Description": "Template API - https://github.com/connected-web/template-api",
+        "Description": {
+          "Fn::Join": [
+            "",
+            [
+              "Template API deployment ",
+              {
+                "Ref": "PACKAGEVERSIONDEFAULT"
+              }
+            ]
+          ]
+        },
         "RestApiId": {
           "Ref": "TemplateAPICE2A2E42"
         }
@@ -759,7 +769,7 @@
         },
         "Environment": {
           "Variables": {
-            "STATUS_DEPLOYMENT_TIME": "2026-06-15T20:25:48.864Z",
+            "STATUS_DEPLOYMENT_TIME": "2026-06-15T20:31:24.030Z",
             "STATUS_BUILD_VERSION": "0.1.0",
             "RELEASE_TAG": {
               "Ref": "RELEASETAGDEFAULT"

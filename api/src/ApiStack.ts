@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
 import { Certificate, CfnCertificate } from 'aws-cdk-lib/aws-certificatemanager'
-import { CfnMethod } from 'aws-cdk-lib/aws-apigateway'
+import { CfnDeployment, CfnMethod } from 'aws-cdk-lib/aws-apigateway'
 import { CfnPermission } from 'aws-cdk-lib/aws-lambda'
 import { CfnRecordSet } from 'aws-cdk-lib/aws-route53'
 
@@ -131,6 +131,13 @@ export class ApiStack extends cdk.Stack {
       .report()
 
     this.disableAuthorizationForOperation('getOpenAPISpec')
+    const deployment = apiGateway.restApi.latestDeployment?.node.defaultChild
+    if (deployment instanceof CfnDeployment) {
+      deployment.addPropertyOverride('Description', cdk.Fn.join('', [
+        'Template API deployment ',
+        sharedResources.packageVersion.valueAsString
+      ]))
+    }
 
     const templateApiUrlOutput = new cdk.CfnOutput(this, 'TemplateApiUrl', {
       value: `https://${vanityDomain}`
