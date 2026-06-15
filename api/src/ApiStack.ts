@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
 import { Certificate, CfnCertificate } from 'aws-cdk-lib/aws-certificatemanager'
+import { CfnMethod } from 'aws-cdk-lib/aws-apigateway'
 import { CfnPermission } from 'aws-cdk-lib/aws-lambda'
 import { CfnRecordSet } from 'aws-cdk-lib/aws-route53'
 
@@ -129,9 +130,22 @@ export class ApiStack extends cdk.Stack {
       })
       .report()
 
+    this.disableAuthorizationForOperation('getOpenAPISpec')
+
     const templateApiUrlOutput = new cdk.CfnOutput(this, 'TemplateApiUrl', {
       value: `https://${vanityDomain}`
     })
     templateApiUrlOutput.node.addDependency(cnameRecord)
+  }
+
+  private disableAuthorizationForOperation (operationName: string): void {
+    const visit = (construct: Construct): void => {
+      if (construct instanceof CfnMethod && construct.operationName === operationName) {
+        construct.addPropertyOverride('AuthorizationType', 'NONE')
+        construct.addPropertyDeletionOverride('AuthorizerId')
+      }
+      construct.node.children.forEach(visit)
+    }
+    visit(this)
   }
 }

@@ -168,8 +168,6 @@ jobs:
     environment: dev
     env:
       NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN != '' && secrets.CONNECTED_WEB_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
-      CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
-      CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -185,31 +183,12 @@ jobs:
         run: npm install
         working-directory: ./api
 
-      - name: Resolve smoke auth header
-        run: |
-          set -euo pipefail
-          test -n "${CWEB_CLIENT_ID:-}"
-          test -n "${CWEB_CLIENT_SECRET:-}"
-          AUTH_HEADER="$(node - <<'NODE'
-          const crypto = require('crypto')
-          const clientId = process.env.CWEB_CLIENT_ID || ''
-          const clientSecret = process.env.CWEB_CLIENT_SECRET || ''
-          const windowValue = Math.floor(Date.now() / 1000 / 300)
-          const data = `${clientId}:${windowValue}`
-          const hmac = crypto.createHmac('sha256', clientSecret).update(data).digest('hex')
-          const token = Buffer.from(`${data}:${hmac}`).toString('base64')
-          process.stdout.write(`CWEB ${token}`)
-          NODE
-          )"
-          echo "::add-mask::$AUTH_HEADER"
-          printf 'POST_DEPLOYMENT_AUTH_HEADER=%s\n' "$AUTH_HEADER" >> "$GITHUB_ENV"
-
       - name: Wait for dev API readiness
         run: |
           set -euo pipefail
           url="https://template-api.dev.connected-web.services/openapi"
           for attempt in $(seq 1 180); do
-            status="$(curl -ksS -H "authorization: ${POST_DEPLOYMENT_AUTH_HEADER}" -o /tmp/template-api-status.json -w '%{http_code}' "$url" || true)"
+            status="$(curl -ksS -o /tmp/template-api-status.json -w '%{http_code}' "$url" || true)"
             case "$status" in
               200)
                 cat /tmp/template-api-status.json

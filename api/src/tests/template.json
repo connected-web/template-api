@@ -524,10 +524,7 @@
     "TemplateAPIopenapiGETEB991BEB": {
       "Type": "AWS::ApiGateway::Method",
       "Properties": {
-        "AuthorizationType": "CUSTOM",
-        "AuthorizerId": {
-          "Ref": "TemplateAPIExistingApiRequestAuthorizerB2BF5B31"
-        },
+        "AuthorizationType": "NONE",
         "HttpMethod": "GET",
         "Integration": {
           "Credentials": {
@@ -762,7 +759,7 @@
         },
         "Environment": {
           "Variables": {
-            "STATUS_DEPLOYMENT_TIME": "2026-06-15T20:15:13.164Z",
+            "STATUS_DEPLOYMENT_TIME": "2026-06-15T20:25:48.864Z",
             "STATUS_BUILD_VERSION": "0.1.0",
             "RELEASE_TAG": {
               "Ref": "RELEASETAGDEFAULT"
