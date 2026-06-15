@@ -96,7 +96,7 @@ jobs:
       - name: Pack template-api package
         run: |
           artifact="/tmp/template-api-${PACKAGE_VERSION}.cweb.pkg"
-          cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package pack --component template-api --version "$PACKAGE_VERSION" --output "$artifact"
+          cweb -p "$TARGET_PROFILE" package pack --component template-api --version "$PACKAGE_VERSION" --output "$artifact"
           echo "PACKAGE_ARTIFACT=$artifact" >> "$GITHUB_ENV"
 
       - name: Publish template-api package to registry

@@ -1,5 +1,8 @@
 import * as cdk from 'aws-cdk-lib'
+import * as apigateway from 'aws-cdk-lib/aws-apigateway'
+import { CfnCertificate } from 'aws-cdk-lib/aws-certificatemanager'
 import { CfnPermission } from 'aws-cdk-lib/aws-lambda'
+import { CfnRecordSet } from 'aws-cdk-lib/aws-route53'
 
 import { Construct } from 'constructs'
 import { OpenAPIRestAPI, OpenAPIBasicModels } from '@connected-web/openapi-rest-api'
@@ -64,6 +67,8 @@ export class ApiStack extends cdk.Stack {
     const sharedResources = new Resources(scope, this, config)
 
     // Create API Gateway
+    const previousCreateCnameRecord = process.env.CREATE_CNAME_RECORD
+    process.env.CREATE_CNAME_RECORD = 'false'
     const apiGateway = new OpenAPIRestAPI<Resources>(this, 'Template API', {
       Description: 'Template API - https://github.com/connected-web/template-api',
       SubDomain: subdomainParameter.valueAsString,
@@ -71,11 +76,55 @@ export class ApiStack extends cdk.Stack {
       AuthorizerARN: identityAuthorizerArnParameter.valueAsString,
       Verifiers: []
     }, sharedResources)
+    apiGateway.vanityDomain = `${subdomainParameter.valueAsString}.${hostedZoneDomainParameter.valueAsString}`
+    if (previousCreateCnameRecord !== undefined) process.env.CREATE_CNAME_RECORD = previousCreateCnameRecord
+    else delete process.env.CREATE_CNAME_RECORD
+
+    const vanityDomain = `${subdomainParameter.valueAsString}.${hostedZoneDomainParameter.valueAsString}`
+    const certificate = new CfnCertificate(this, 'TemplateApiCertificate', {
+      domainName: vanityDomain,
+      validationMethod: 'DNS',
+      domainValidationOptions: [{
+        domainName: vanityDomain,
+        hostedZoneId: hostedZoneIdParameter.valueAsString
+      }]
+    })
+
+    const domainName = new apigateway.CfnDomainName(this, 'template-api-domain-name', {
+      domainName: vanityDomain,
+      endpointConfiguration: {
+        types: ['REGIONAL']
+      },
+      regionalCertificateArn: certificate.ref
+    })
+
+    const basePathMapping = new apigateway.CfnBasePathMapping(this, 'template-api-base-path-mapping', {
+      domainName: vanityDomain,
+      restApiId: apiGateway.restApi.restApiId,
+      stage: apiGateway.restApi.deploymentStage.stageName
+    })
+    basePathMapping.addDependency(domainName)
+
+    const cnameRecord = new CfnRecordSet(this, 'cname-record', {
+      hostedZoneId: hostedZoneIdParameter.valueAsString,
+      name: `${vanityDomain}.`,
+      type: 'CNAME',
+      ttl: '300',
+      resourceRecords: [domainName.attrRegionalDomainName]
+    })
+    cnameRecord.addDependency(domainName)
 
     const authorizerInvokePermission = new CfnPermission(this, 'AllowApiGatewayInvokeSharedAuthorizer', {
       action: 'lambda:InvokeFunction',
       functionName: identityAuthorizerArnParameter.valueAsString,
-      principal: 'apigateway.amazonaws.com'
+      principal: 'apigateway.amazonaws.com',
+      sourceArn: cdk.Arn.format({
+        service: 'execute-api',
+        region: cdk.Stack.of(this).region,
+        account: cdk.Stack.of(this).account,
+        resource: apiGateway.restApi.restApiId,
+        resourceName: 'authorizers/*'
+      }, this)
     })
     authorizerInvokePermission.node.addDependency(apiGateway.restApi)
 
@@ -89,5 +138,10 @@ export class ApiStack extends cdk.Stack {
         'GET /openapi': new OpenAPISpecEndpoint()
       })
       .report()
+
+    const templateApiUrlOutput = new cdk.CfnOutput(this, 'TemplateApiUrl', {
+      value: `https://${vanityDomain}`
+    })
+    templateApiUrlOutput.node.addDependency(cnameRecord)
   }
 }

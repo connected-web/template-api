@@ -10,7 +10,7 @@
     },
     "HostedZoneId": {
       "Type": "String",
-      "Default": ""
+      "Default": "Z1234567890"
     },
     "IDENTITYAUTHORIZERARN": {
       "Type": "String",
@@ -721,7 +721,7 @@
         },
         "Environment": {
           "Variables": {
-            "STATUS_DEPLOYMENT_TIME": "2026-06-14T19:08:01.778Z",
+            "STATUS_DEPLOYMENT_TIME": "2026-06-15T16:59:13.977Z",
             "STATUS_BUILD_VERSION": "0.1.0",
             "RELEASE_TAG": {
               "Ref": "RELEASETAGDEFAULT"
@@ -822,6 +822,138 @@
         "TemplateAPIGetOpenAPISpecServiceRole2905E446"
       ]
     },
+    "TemplateApiCertificate": {
+      "Type": "AWS::CertificateManager::Certificate",
+      "Properties": {
+        "DomainName": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "Subdomain"
+              },
+              ".",
+              {
+                "Ref": "HostedZoneDomain"
+              }
+            ]
+          ]
+        },
+        "DomainValidationOptions": [
+          {
+            "DomainName": {
+              "Fn::Join": [
+                "",
+                [
+                  {
+                    "Ref": "Subdomain"
+                  },
+                  ".",
+                  {
+                    "Ref": "HostedZoneDomain"
+                  }
+                ]
+              ]
+            },
+            "HostedZoneId": {
+              "Ref": "HostedZoneId"
+            }
+          }
+        ],
+        "ValidationMethod": "DNS"
+      }
+    },
+    "templateapidomainname": {
+      "Type": "AWS::ApiGateway::DomainName",
+      "Properties": {
+        "DomainName": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "Subdomain"
+              },
+              ".",
+              {
+                "Ref": "HostedZoneDomain"
+              }
+            ]
+          ]
+        },
+        "EndpointConfiguration": {
+          "Types": [
+            "REGIONAL"
+          ]
+        },
+        "RegionalCertificateArn": {
+          "Ref": "TemplateApiCertificate"
+        }
+      }
+    },
+    "templateapibasepathmapping": {
+      "Type": "AWS::ApiGateway::BasePathMapping",
+      "Properties": {
+        "DomainName": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "Subdomain"
+              },
+              ".",
+              {
+                "Ref": "HostedZoneDomain"
+              }
+            ]
+          ]
+        },
+        "RestApiId": {
+          "Ref": "TemplateAPICE2A2E42"
+        },
+        "Stage": {
+          "Ref": "TemplateAPIDeploymentStagev19D1EF21E"
+        }
+      },
+      "DependsOn": [
+        "templateapidomainname"
+      ]
+    },
+    "cnamerecord": {
+      "Type": "AWS::Route53::RecordSet",
+      "Properties": {
+        "HostedZoneId": {
+          "Ref": "HostedZoneId"
+        },
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "Subdomain"
+              },
+              ".",
+              {
+                "Ref": "HostedZoneDomain"
+              },
+              "."
+            ]
+          ]
+        },
+        "ResourceRecords": [
+          {
+            "Fn::GetAtt": [
+              "templateapidomainname",
+              "RegionalDomainName"
+            ]
+          }
+        ],
+        "TTL": "300",
+        "Type": "CNAME"
+      },
+      "DependsOn": [
+        "templateapidomainname"
+      ]
+    },
     "AllowApiGatewayInvokeSharedAuthorizer": {
       "Type": "AWS::Lambda::Permission",
       "Properties": {
@@ -829,7 +961,23 @@
         "FunctionName": {
           "Ref": "IDENTITYAUTHORIZERARN"
         },
-        "Principal": "apigateway.amazonaws.com"
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Join": [
+            "",
+            [
+              "arn:",
+              {
+                "Ref": "AWS::Partition"
+              },
+              ":execute-api:eu-west-2:1234567890:",
+              {
+                "Ref": "TemplateAPICE2A2E42"
+              },
+              "/authorizers/*"
+            ]
+          ]
+        }
       },
       "DependsOn": [
         "TemplateAPIAccountE066AC80",
@@ -1062,6 +1210,23 @@
               "Ref": "TemplateAPIDeploymentStagev19D1EF21E"
             },
             "/"
+          ]
+        ]
+      }
+    },
+    "TemplateApiUrl": {
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "https://",
+            {
+              "Ref": "Subdomain"
+            },
+            ".",
+            {
+              "Ref": "HostedZoneDomain"
+            }
           ]
         ]
       }

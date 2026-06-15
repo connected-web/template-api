@@ -34,6 +34,8 @@ GitHub Actions package this stack into a `.cweb.pkg`, publish the artifact to `r
 
 The workflow does not assume AWS roles directly. Environment-specific values such as `HostedZoneDomain`, `HostedZoneId`, and `IDENTITY_AUTHORIZER_ARN` are supplied by Connected Web account configuration and the management API deployment worker.
 
+The stack still uses `@connected-web/openapi-rest-api` for API Gateway, route, model, and authorizer wiring. The custom domain, DNS record, and certificate are created in this stack from CloudFormation parameters so package synthesis does not need a Route53 hosted-zone lookup.
+
 ### Environments
 
 This stack is designed to be deployed to multiple environments. The following environments are supported:
