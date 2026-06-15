@@ -70,7 +70,7 @@ jobs:
       - name: Resolve deploy config
         run: |
           set -euo pipefail
-          HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-template-api.dev.connected-web.services}"
+          HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-dev.connected-web.services}"
           IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-arn:aws:lambda:eu-west-2:807726400201:function:CWEB-management-api-manag-ManagedIdentityAuthorize-F8oxeIR3A6Og}"
           if [ -z "$HOSTED_ZONE_DOMAIN" ] || [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
             echo "Missing HOSTED_ZONE_DOMAIN or IDENTITY_AUTHORIZER_ARN workflow vars." >&2
