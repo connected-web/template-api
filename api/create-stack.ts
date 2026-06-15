@@ -7,8 +7,9 @@ const {
   ACCOUNT_PROFILE,
   AWS_ACCOUNT_CONFIG,
   AWS_ACCOUNT_ID,
+  AWS_DEFAULT_REGION,
+  AWS_REGION,
   CDK_DEFAULT_ACCOUNT,
-  CDK_DEFAULT_REGION,
   DEPLOY_CONFIG
 } = process.env
 
@@ -48,7 +49,7 @@ const stackTemplate = new ApiStack(app, 'TemplateApiStack', {
   stackName,
   env: {
     account: CDK_DEFAULT_ACCOUNT ?? '123456789012',
-    region: CDK_DEFAULT_REGION ?? 'eu-west-2'
+    region: AWS_REGION ?? AWS_DEFAULT_REGION ?? 'eu-west-2'
   }
 },
 {
