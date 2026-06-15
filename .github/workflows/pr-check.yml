@@ -185,17 +185,30 @@ jobs:
           const deadline = Date.now() + 10 * 60 * 1000
 
           const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+          const withTimeout = async (promise, label, ms = 5000) => {
+            let timeout
+            try {
+              return await Promise.race([
+                promise,
+                new Promise((_, reject) => {
+                  timeout = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+                })
+              ])
+            } finally {
+              clearTimeout(timeout)
+            }
+          }
           const resolveAuthoritativeCname = async () => {
-            const nameservers = await dnsPromises.resolveNs(zoneName)
+            const nameservers = await withTimeout(dnsPromises.resolveNs(zoneName), `resolve NS for ${zoneName}`)
             const nameserverAddresses = (await Promise.all(
-              nameservers.map(async (server) => dnsPromises.resolve4(server).catch(() => []))
+              nameservers.map(async (server) => withTimeout(dnsPromises.resolve4(server), `resolve ${server}`).catch(() => []))
             )).flat()
             if (nameserverAddresses.length === 0) {
               throw new Error(`No IPv4 nameservers resolved for ${zoneName}`)
             }
             const resolver = new dnsPromises.Resolver()
             resolver.setServers(nameserverAddresses)
-            const [cname] = await resolver.resolveCname(hostname)
+            const [cname] = await withTimeout(resolver.resolveCname(hostname), `resolve authoritative CNAME for ${hostname}`)
             if (!cname) throw new Error(`No CNAME returned for ${hostname}`)
             return cname.replace(/\.$/, '')
           }
@@ -232,7 +245,7 @@ jobs:
             while (Date.now() < deadline) {
               try {
                 const cname = await resolveAuthoritativeCname()
-                const [address] = await dnsPromises.resolve4(cname)
+                const [address] = await withTimeout(dnsPromises.resolve4(cname), `resolve ${cname}`)
                 if (!address) throw new Error(`No IPv4 address resolved for ${cname}`)
                 const openapi = await requestJson(`${baseUrl}/openapi`, address)
                 if (!openapi?.paths?.['/status']) throw new Error('/openapi did not include /status')
