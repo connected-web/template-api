@@ -106,13 +106,20 @@ jobs:
           else
             DEPLOY_INSTANCE_ID="${{ github.event.inputs.instance_id }}"
           fi
+          IDENTITY_AUTHORIZER_ARN="$(cweb -p "$TARGET_PROFILE" curl -fsS "https://management-api.${HOSTED_ZONE_DOMAIN}/resources/runtime-context" | jq -r '.identity.authorizerArn // empty')"
+          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
+            echo "Unable to resolve IDENTITY_AUTHORIZER_ARN from management-api runtime context." >&2
+            exit 1
+          fi
 
           DEPLOY_CONFIG_JSON="$(jq -cn \
             --arg subdomain "$DEPLOY_INSTANCE_ID" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
+            --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
             '{
               Subdomain: $subdomain,
-              HostedZoneDomain: $hostedZoneDomain
+              HostedZoneDomain: $hostedZoneDomain,
+              IDENTITY_AUTHORIZER_ARN: $authorizerArn
             }')"
           echo "DEPLOY_INSTANCE_ID=$DEPLOY_INSTANCE_ID" >> "$GITHUB_ENV"
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
