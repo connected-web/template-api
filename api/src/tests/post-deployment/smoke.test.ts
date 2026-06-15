@@ -4,6 +4,7 @@ import https from 'node:https'
 
 const isSmokeOnly = process.env.POST_DEPLOYMENT_SMOKE_ONLY === 'true'
 const serverDomain = process.env.POST_DEPLOYMENT_SERVER_DOMAIN ?? ''
+const authHeader = process.env.POST_DEPLOYMENT_AUTH_HEADER ?? ''
 
 const smokeDescribe = isSmokeOnly ? describe : describe.skip
 
@@ -14,10 +15,10 @@ smokeDescribe('Post-deployment smoke', () => {
     const response = await axios.get(`${serverDomain}/openapi`, {
       timeout: 15000,
       httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+      headers: authHeader === '' ? undefined : { authorization: authHeader },
       validateStatus: () => true
     })
 
-    // Shared authorizer paths usually return 401/403 without bearer token.
-    expect([200, 401, 403, 404]).toContain(response.status)
+    expect(response.status).toBe(200)
   })
 })
