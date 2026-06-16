@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
-  packages: write
+  packages: read
   pull-requests: write
 
 jobs:
@@ -64,40 +64,6 @@ jobs:
 
       - name: Install cweb CLI
         run: npm install -g @connected-web/cweb
-
-      - name: Bootstrap cweb account config
-        run: |
-          set -euo pipefail
-          accounts_dir="$RUNNER_TEMP/cweb-accounts"
-          state_dir="$HOME/.cweb"
-          mkdir -p "$accounts_dir" "$state_dir"
-          curl -fsS https://management-ui.org.connected-web.services/known-accounts.json > "$RUNNER_TEMP/known-accounts.json"
-          node <<'NODE'
-          const fs = require('fs')
-          const os = require('os')
-          const path = require('path')
-          const manifest = JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'known-accounts.json'), 'utf8'))
-          const accountsDir = path.join(process.env.RUNNER_TEMP, 'cweb-accounts')
-          const aliases = {}
-          for (const account of manifest.accounts || []) {
-            if (!account.accountName || !account.environment) continue
-            aliases[account.environment] = account.accountName
-            fs.writeFileSync(path.join(accountsDir, `${account.accountName}.json`), JSON.stringify({
-              accountId: account.accountId,
-              accountName: account.accountName,
-              service: 'connected-web',
-              environment: account.environment,
-              parentZone: account.parentZone || 'connected-web.services',
-              rootZones: account.rootZones,
-              identity: manifest.identity
-            }, null, 2))
-          }
-          fs.writeFileSync(path.join(os.homedir(), '.cweb', 'state.json'), JSON.stringify({
-            lastAccountsDir: accountsDir,
-            profileAliases: aliases
-          }, null, 2))
-          NODE
-          echo "CWEB_ACCOUNTS_DIR=$accounts_dir" >> "$GITHUB_ENV"
 
       - name: Resolve package version
         run: echo "PACKAGE_VERSION=0.0.0-pr.${{ github.event.pull_request.number || github.run_number }}.${{ github.run_number }}.${{ github.run_attempt }}" >> "$GITHUB_ENV"
@@ -166,110 +132,16 @@ jobs:
             --timeout 900 \
             --watch
 
-      - name: Smoke test deployed API
-        env:
-          POST_DEPLOYMENT_SERVER_DOMAIN: ${{ env.DEPLOY_BASE_URL }}
+      - name: Smoke test deployed OpenAPI
         run: |
           set -euo pipefail
-          node <<'NODE'
-          const dns = require('node:dns')
-          const dnsPromises = dns.promises
-          const fs = require('node:fs')
-          const https = require('node:https')
-
-          const baseUrl = process.env.POST_DEPLOYMENT_SERVER_DOMAIN
-          if (!baseUrl) throw new Error('POST_DEPLOYMENT_SERVER_DOMAIN is required')
-          const url = new URL(baseUrl)
-          const hostname = url.hostname
-          const zoneName = hostname.split('.').slice(1).join('.')
-          const deadline = Date.now() + 10 * 60 * 1000
-
-          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-          const withTimeout = async (promise, label, ms = 5000) => {
-            let timeout
-            try {
-              return await Promise.race([
-                promise,
-                new Promise((_, reject) => {
-                  timeout = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-                })
-              ])
-            } finally {
-              clearTimeout(timeout)
-            }
-          }
-          const resolveAuthoritativeCname = async () => {
-            const nameservers = await withTimeout(dnsPromises.resolveNs(zoneName), `resolve NS for ${zoneName}`)
-            const nameserverAddresses = (await Promise.all(
-              nameservers.map(async (server) => withTimeout(dnsPromises.resolve4(server), `resolve ${server}`).catch(() => []))
-            )).flat()
-            if (nameserverAddresses.length === 0) {
-              throw new Error(`No IPv4 nameservers resolved for ${zoneName}`)
-            }
-            const resolver = new dnsPromises.Resolver()
-            resolver.setServers(nameserverAddresses)
-            const [cname] = await withTimeout(resolver.resolveCname(hostname), `resolve authoritative CNAME for ${hostname}`)
-            if (!cname) throw new Error(`No CNAME returned for ${hostname}`)
-            return cname.replace(/\.$/, '')
-          }
-          const requestJson = (requestUrl, connectAddress) => new Promise((resolve, reject) => {
-            const req = https.get(requestUrl, {
-              timeout: 15000,
-              servername: hostname,
-              lookup: (_host, options, callback) => {
-                if (options?.all === true) callback(null, [{ address: connectAddress, family: 4 }])
-                else callback(null, connectAddress, 4)
-              }
-            }, (res) => {
-              let body = ''
-              res.setEncoding('utf8')
-              res.on('data', (chunk) => { body += chunk })
-              res.on('end', () => {
-                if (res.statusCode !== 200) {
-                  reject(new Error(`${url} returned ${res.statusCode}: ${body.slice(0, 500)}`))
-                  return
-                }
-                try {
-                  resolve(JSON.parse(body))
-                } catch (error) {
-                  reject(new Error(`${url} returned invalid JSON: ${error.message}`))
-                }
-              })
-            })
-            req.on('timeout', () => req.destroy(new Error(`${url} timed out`)))
-            req.on('error', reject)
-          })
-
-          ;(async () => {
-            let lastError
-            while (Date.now() < deadline) {
-              try {
-                const cname = await resolveAuthoritativeCname()
-                const [address] = await withTimeout(dnsPromises.resolve4(cname), `resolve ${cname}`)
-                if (!address) throw new Error(`No IPv4 address resolved for ${cname}`)
-                const openapi = await requestJson(`${baseUrl}/openapi`, address)
-                if (!openapi?.paths?.['/status']) throw new Error('/openapi did not include /status')
-                fs.appendFileSync(process.env.GITHUB_ENV, `DEPLOY_CONNECT_TO_TARGET=${cname}\n`)
-                console.log('Public smoke checks passed:', { baseUrl, cname, address })
-                return
-              } catch (error) {
-                lastError = error
-                console.log(`Waiting for deployed API: ${error.message}`)
-                await sleep(15000)
-              }
-            }
-            throw lastError ?? new Error('Timed out waiting for deployed API')
-          })().catch((error) => {
-            console.error(error)
-            process.exit(1)
-          })
-          NODE
+          openapi_json="$(curl --fail --silent --show-error --retry 20 --retry-delay 15 --retry-all-errors "$DEPLOY_BASE_URL/openapi")"
+          printf '%s\n' "$openapi_json" | jq -e '.paths["/status"]' >/dev/null
 
       - name: Verify deployed status metadata
         run: |
           set -euo pipefail
-          deploy_host="$(node -e 'process.stdout.write(new URL(process.env.DEPLOY_BASE_URL).hostname)')"
-          status_json="$(cweb -p "$TARGET_PROFILE" curl --connect-to "${deploy_host}:443:${DEPLOY_CONNECT_TO_TARGET}:443" -sS "$DEPLOY_BASE_URL/status")"
+          status_json="$(cweb -p "$TARGET_PROFILE" curl -sS "$DEPLOY_BASE_URL/status")"
           actual_package_version="$(printf '%s' "$status_json" | jq -r '.packageVersion // empty')"
           if [ "$actual_package_version" != "$PACKAGE_VERSION" ]; then
             echo "Expected /status packageVersion '$PACKAGE_VERSION', got '$actual_package_version'." >&2

@@ -62,40 +62,6 @@ jobs:
       - name: Install cweb CLI
         run: npm install -g @connected-web/cweb
 
-      - name: Bootstrap cweb account config
-        run: |
-          set -euo pipefail
-          accounts_dir="$RUNNER_TEMP/cweb-accounts"
-          state_dir="$HOME/.cweb"
-          mkdir -p "$accounts_dir" "$state_dir"
-          curl -fsS https://management-ui.org.connected-web.services/known-accounts.json > "$RUNNER_TEMP/known-accounts.json"
-          node <<'NODE'
-          const fs = require('fs')
-          const os = require('os')
-          const path = require('path')
-          const manifest = JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'known-accounts.json'), 'utf8'))
-          const accountsDir = path.join(process.env.RUNNER_TEMP, 'cweb-accounts')
-          const aliases = {}
-          for (const account of manifest.accounts || []) {
-            if (!account.accountName || !account.environment) continue
-            aliases[account.environment] = account.accountName
-            fs.writeFileSync(path.join(accountsDir, `${account.accountName}.json`), JSON.stringify({
-              accountId: account.accountId,
-              accountName: account.accountName,
-              service: 'connected-web',
-              environment: account.environment,
-              parentZone: account.parentZone || 'connected-web.services',
-              rootZones: account.rootZones,
-              identity: manifest.identity
-            }, null, 2))
-          }
-          fs.writeFileSync(path.join(os.homedir(), '.cweb', 'state.json'), JSON.stringify({
-            lastAccountsDir: accountsDir,
-            profileAliases: aliases
-          }, null, 2))
-          NODE
-          echo "CWEB_ACCOUNTS_DIR=$accounts_dir" >> "$GITHUB_ENV"
-
       - name: Resolve account/profile
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
@@ -170,9 +136,6 @@ jobs:
 
       - name: Pack template-api package
         run: cweb package pack --component template-api --version "$PACKAGE_VERSION"
-
-      - name: Publish template-api package
-        run: cweb -p "$TARGET_PROFILE" package publish --component template-api --version "$PACKAGE_VERSION"
 
       - name: Publish to registry
         env:

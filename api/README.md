@@ -18,7 +18,6 @@ It is designed as a simple, cheap to host, highly scalable API that can be used 
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/en/) v18 or higher
-- [AWS CLI](https://aws.amazon.com/cli/)
 - [AWS CDK](https://docs.aws.amazon.com/cdk/latest/guide/getting_started.html)
 
 ### Setup
@@ -32,9 +31,27 @@ It is designed as a simple, cheap to host, highly scalable API that can be used 
 
 GitHub Actions package this stack into a `.cweb.pkg`, publish the artifact to `registry-api`, and request remote deployment with `cweb package deploy --host remote`.
 
-The workflow does not assume AWS roles directly. The workflow passes only package-specific deploy config such as `Subdomain`, `HostedZoneDomain`, and `IdentityAuthorizerArn`; environment-specific values such as `HostedZoneId` are supplied by Connected Web account configuration and the management API deployment worker.
+The workflow does not assume AWS roles directly. It passes package-specific deploy config such as `Subdomain`, `HostedZoneDomain`, `IdentityAuthorizerArn`, `RELEASETAGDEFAULT`, and `PACKAGEVERSIONDEFAULT`. Environment-specific values such as `HostedZoneId`, AWS account ID, and the CloudFormation execution role are supplied by Connected Web account configuration and the management API deployment worker.
 
 The stack still uses `@connected-web/openapi-rest-api` for API Gateway, route, model, and authorizer wiring. The custom domain, DNS record, and certificate are created in this stack from CloudFormation parameters so package synthesis does not need a Route53 hosted-zone lookup.
+
+### Deployment Boundary
+
+This repo owns:
+
+- The CDK stack and Lambda source for `template-api`
+- The CloudFormation parameters declared by the template
+- The `.cweb.pkg` package metadata for this component
+- Smoke checks that verify the deployed `/openapi` and `/status` endpoints
+
+The Connected Web deployment platform owns:
+
+- Package storage and version lookup through `registry-api`
+- Deployment records, worker execution, and status reporting through `management-api`
+- AWS account context, hosted zone details, and CloudFormation execution role
+- Applying the package to dev or prod with the configured platform identity
+
+Workflows should not write cweb account config files, commit account JSON, or authenticate to AWS directly. If a runner cannot resolve a cweb profile, that setup belongs in the cweb CLI or platform repo bootstrap process rather than in this template.
 
 ### Environments
 
@@ -43,7 +60,7 @@ This stack is designed to be deployed to multiple environments. The following en
 - `connected-web-dev` - Development environment
 - `connected-web-prod` - Production environment
 
-These environments are preconfigured with a hosted zone, SSL certificate, and shared authorizer.
+These environments are preconfigured with a hosted zone, certificate support, and shared authorizer.
 
 ### Authentication
 
