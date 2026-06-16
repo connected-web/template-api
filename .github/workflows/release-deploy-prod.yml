@@ -52,6 +52,7 @@ jobs:
       hosted_zone_domain: dev.connected-web.services
       package_version: ${{ needs.resolve-release.outputs.package_version }}
       release_tag: ${{ needs.resolve-release.outputs.release_tag }}
+      publish_enabled: true
       deploy_enabled: true
     secrets: inherit
 
@@ -67,5 +68,6 @@ jobs:
       hosted_zone_domain: prod.connected-web.services
       package_version: ${{ needs.resolve-release.outputs.package_version }}
       release_tag: ${{ needs.resolve-release.outputs.release_tag }}
+      publish_enabled: false
       deploy_enabled: ${{ github.event_name == 'release' || inputs.deploy_prod }}
     secrets: inherit

@@ -21,6 +21,9 @@ on:
       release_tag:
         required: true
         type: string
+      publish_enabled:
+        required: true
+        type: boolean
       deploy_enabled:
         required: true
         type: boolean
@@ -94,12 +97,14 @@ jobs:
           echo "DEPLOY_CONFIG=$deploy_config" >> "$GITHUB_ENV"
 
       - name: Pack template-api package
+        if: ${{ inputs.publish_enabled }}
         run: |
           artifact="/tmp/template-api-${PACKAGE_VERSION}.cweb.pkg"
           cweb package pack --component template-api --version "$PACKAGE_VERSION" --output "$artifact"
           echo "PACKAGE_ARTIFACT=$artifact" >> "$GITHUB_ENV"
 
       - name: Publish template-api package to registry
+        if: ${{ inputs.publish_enabled }}
         env:
           REGISTRY_API_BASE_URL: https://registry-api.resources.connected-web.services
           CWEB_CLIENT_ID: ${{ vars.REGISTRY_API_CLIENT_ID != '' && vars.REGISTRY_API_CLIENT_ID || secrets.CWEB_CLIENT_ID }}
