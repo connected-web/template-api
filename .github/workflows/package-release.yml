@@ -1,9 +1,6 @@
 name: Package Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       account:
@@ -64,13 +61,8 @@ jobs:
 
       - name: Resolve account/profile
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            ACCOUNT="dev"
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            ACCOUNT="${{ github.event.inputs.account }}"
-            VERSION="${{ github.event.inputs.version }}"
-          fi
+          ACCOUNT="${{ github.event.inputs.account }}"
+          VERSION="${{ github.event.inputs.version }}"
 
           if [ -z "$VERSION" ]; then
             echo "Release version is required for manual runs" >&2
@@ -102,11 +94,7 @@ jobs:
           else
             HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-prod.connected-web.services}"
           fi
-          if [ "${{ github.event_name }}" = "push" ]; then
-            DEPLOY_INSTANCE_ID="template-api"
-          else
-            DEPLOY_INSTANCE_ID="${{ github.event.inputs.instance_id }}"
-          fi
+          DEPLOY_INSTANCE_ID="${{ github.event.inputs.instance_id }}"
           IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
           if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
             RUNTIME_CONTEXT_JSON="$(cweb -p "$TARGET_PROFILE" curl -sS "https://management-api.${HOSTED_ZONE_DOMAIN}/resources/runtime-context")"
@@ -146,7 +134,7 @@ jobs:
         run: cweb -p "$TARGET_PROFILE" package publish --target registry-api --component template-api --version "$PACKAGE_VERSION" --artifact ".cweb/dist/template-api-${PACKAGE_VERSION}.cweb.pkg"
 
       - name: Deploy template-api package
-        if: ${{ github.event_name == 'push' || github.event.inputs.deploy_enabled == 'true' }}
+        if: ${{ github.event.inputs.deploy_enabled == 'true' }}
         run: |
           cweb -p "$TARGET_PROFILE" package deploy \
             --host remote \
