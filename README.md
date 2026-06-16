@@ -1,15 +1,15 @@
 # Template API
 
-A template for building serverless APIs using AWS Lambda, API Gateway, Route53, and ACM.
+A template for building highly scalable serverless APIs using AWS Lambda, API Gateway, Route53, and ACM.
 
 ## Features
 
-- AWS API Gateway REST API
-- Individual AWS Lambda endpoints in TypeScript
-- OpenAPI 3.0 spec generated from the deployed API
-- Custom domain with Route53 and ACM
-- Shared Connected Web API authorizer
-- Connected Web `.cweb.pkg` package deployment
+- 🌐 AWS API Gateway REST API
+- 🚀 Individual AWS Lambda endpoints in TypeScript
+- 📖 OpenAPI 3.0 spec generated from the deployed API
+- 🔒 Custom domain with Route53 and ACM
+- 🔑 Shared Connected Web API authorizer
+- 🔐 Connected Web `.cweb.pkg` package deployment through `registry-api` and `management-api`
 
 
 ## Deployment Summary
