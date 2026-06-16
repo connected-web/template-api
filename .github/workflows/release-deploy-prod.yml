@@ -7,20 +7,12 @@ on:
       - prereleased
   workflow_dispatch:
     inputs:
-      release_type:
-        description: Release type to deploy
-        required: true
-        type: choice
-        options:
-          - release
-          - release-candidate
-        default: release
       tag_name:
         description: Release tag to deploy
         required: true
         type: string
-      deploy_enabled:
-        description: Deploy after publishing package
+      deploy_prod:
+        description: Deploy to prod after dev succeeds
         required: true
         type: boolean
         default: true
@@ -30,263 +22,50 @@ permissions:
   packages: read
 
 jobs:
-  deploy-dev:
+  resolve-release:
     runs-on: ubuntu-latest
-    environment: dev
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN != '' && secrets.CONNECTED_WEB_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
-      CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
-      CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
-      CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
-      TARGET_PROFILE: dev
-      TARGET_INSTANCE_ID: template-api
-      RELEASE_TYPE: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'release-candidate' || 'release') || inputs.release_type }}
-      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag_name }}
-
+    outputs:
+      package_version: ${{ steps.release.outputs.package_version }}
+      release_tag: ${{ steps.release.outputs.release_tag }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Use Node JS LTS
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20.x
-          registry-url: https://npm.pkg.github.com
-          scope: '@connected-web'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run checks
-        run: npm run test
-
-      - name: Install cweb CLI
-        run: npm install -g @connected-web/cweb
-
-      - name: Resolve release version
+      - name: Resolve package version
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag_name }}
         run: |
           set -euo pipefail
-          TAG="${RELEASE_TAG#v}"
-          if [ -z "$TAG" ]; then
+          package_version="${RELEASE_TAG#v}"
+          if [ -z "$package_version" ]; then
             echo "Missing release tag" >&2
             exit 1
           fi
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "package_version=$package_version" >> "$GITHUB_OUTPUT"
 
-          case "$RELEASE_TYPE" in
-            release)
-              PACKAGE_VERSION="$TAG"
-              ;;
-            release-candidate)
-              if [[ "$TAG" == *-rc.* ]]; then
-                PACKAGE_VERSION="$TAG"
-              else
-                PACKAGE_VERSION="${TAG}-rc.${GITHUB_RUN_NUMBER}"
-              fi
-              ;;
-            *)
-              echo "Unsupported release type: $RELEASE_TYPE" >&2
-              exit 1
-              ;;
-          esac
-
-          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> "$GITHUB_ENV"
-
-      - name: Resolve deploy config
-        run: |
-          set -euo pipefail
-          HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-dev.connected-web.services}"
-          if [ -z "$HOSTED_ZONE_DOMAIN" ]; then
-            echo "Missing HOSTED_ZONE_DOMAIN workflow var." >&2
-            exit 1
-          fi
-          IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
-          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
-            RUNTIME_CONTEXT_JSON="$(cweb -p "$TARGET_PROFILE" curl -sS "https://management-api.${HOSTED_ZONE_DOMAIN}/resources/runtime-context")"
-            IDENTITY_AUTHORIZER_ARN="$(printf '%s' "$RUNTIME_CONTEXT_JSON" | jq -r '.identity.authorizerArn // empty')"
-          fi
-          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
-            echo "Unable to resolve IDENTITY_AUTHORIZER_ARN from management-api runtime context." >&2
-            printf '%s\n' "${RUNTIME_CONTEXT_JSON:-}" >&2
-            exit 1
-          fi
-
-          DEPLOY_CONFIG_JSON="$(jq -cn \
-            --arg subdomain "$TARGET_INSTANCE_ID" \
-            --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
-            --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
-            --arg releaseTag "$RELEASE_TAG" \
-            --arg packageVersion "$PACKAGE_VERSION" \
-            '{
-              Subdomain: $subdomain,
-              HostedZoneDomain: $hostedZoneDomain,
-              IdentityAuthorizerArn: $authorizerArn,
-              RELEASETAGDEFAULT: $releaseTag,
-              PACKAGEVERSIONDEFAULT: $packageVersion
-            }')"
-
-          echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
-          echo "DEPLOY_BASE_URL=https://${TARGET_INSTANCE_ID}.${HOSTED_ZONE_DOMAIN}" >> "$GITHUB_ENV"
-
-      - name: Pack template-api package
-        run: |
-          artifact="/tmp/template-api-${PACKAGE_VERSION}.cweb.pkg"
-          cweb package pack --component template-api --version "$PACKAGE_VERSION" --output "$artifact"
-          echo "PACKAGE_ARTIFACT=$artifact" >> "$GITHUB_ENV"
-
-      - name: Publish template-api package to registry
-        env:
-          REGISTRY_API_BASE_URL: https://registry-api.resources.connected-web.services
-          CWEB_CLIENT_ID: ${{ vars.REGISTRY_API_CLIENT_ID != '' && vars.REGISTRY_API_CLIENT_ID || secrets.CWEB_CLIENT_ID }}
-          CWEB_CLIENT_SECRET: ${{ secrets.REGISTRY_API_CLIENT_SECRET != '' && secrets.REGISTRY_API_CLIENT_SECRET || secrets.CWEB_CLIENT_SECRET }}
-          CWEB_CLIENT_TYPE: ${{ vars.REGISTRY_API_CLIENT_TYPE != '' && vars.REGISTRY_API_CLIENT_TYPE || secrets.CWEB_CLIENT_TYPE }}
-        run: cweb -p resources package publish --target registry-api --component template-api --version "$PACKAGE_VERSION" --artifact "$PACKAGE_ARTIFACT" --if-exists-skip
-
-      - name: Deploy template-api package to dev
-        env:
-          MANAGEMENT_API_BASE_URL: https://management-api.dev.connected-web.services
-        run: |
-          cweb -p "$TARGET_PROFILE" package deploy \
-            --host remote \
-            --component template-api \
-            --version "$PACKAGE_VERSION" \
-            --instance-id "$TARGET_INSTANCE_ID" \
-            --config "$DEPLOY_CONFIG" \
-            --view detailed \
-            --timeout 900 \
-            --watch
-
-      - name: Summary
-        run: |
-          echo "Development deployment complete (${RELEASE_TYPE}): ${DEPLOY_BASE_URL}"
+  deploy-dev:
+    needs: resolve-release
+    uses: ./.github/workflows/release-package-deploy.yml
+    with:
+      environment_name: dev
+      target_profile: dev
+      target_instance_id: template-api
+      hosted_zone_domain: dev.connected-web.services
+      package_version: ${{ needs.resolve-release.outputs.package_version }}
+      release_tag: ${{ needs.resolve-release.outputs.release_tag }}
+      deploy_enabled: true
+    secrets: inherit
 
   deploy-prod:
-    needs: deploy-dev
-    runs-on: ubuntu-latest
-    environment: prod
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN != '' && secrets.CONNECTED_WEB_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
-      CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
-      CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
-      CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
-      TARGET_PROFILE: prod
-      TARGET_INSTANCE_ID: template-api
-      RELEASE_TYPE: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'release-candidate' || 'release') || inputs.release_type }}
-      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag_name }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Use Node JS LTS
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20.x
-          registry-url: https://npm.pkg.github.com
-          scope: '@connected-web'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run checks
-        run: npm run test
-
-      - name: Install cweb CLI
-        run: npm install -g @connected-web/cweb
-
-      - name: Resolve release version
-        run: |
-          set -euo pipefail
-          TAG="${RELEASE_TAG#v}"
-          if [ -z "$TAG" ]; then
-            echo "Missing release tag" >&2
-            exit 1
-          fi
-
-          case "$RELEASE_TYPE" in
-            release)
-              PACKAGE_VERSION="$TAG"
-              ;;
-            release-candidate)
-              if [[ "$TAG" == *-rc.* ]]; then
-                PACKAGE_VERSION="$TAG"
-              else
-                PACKAGE_VERSION="${TAG}-rc.${GITHUB_RUN_NUMBER}"
-              fi
-              ;;
-            *)
-              echo "Unsupported release type: $RELEASE_TYPE" >&2
-              exit 1
-              ;;
-          esac
-
-          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> "$GITHUB_ENV"
-
-      - name: Resolve deploy config
-        run: |
-          set -euo pipefail
-          HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-prod.connected-web.services}"
-          if [ -z "$HOSTED_ZONE_DOMAIN" ]; then
-            echo "Missing HOSTED_ZONE_DOMAIN workflow var." >&2
-            exit 1
-          fi
-          IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
-          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
-            RUNTIME_CONTEXT_JSON="$(cweb -p "$TARGET_PROFILE" curl -sS "https://management-api.${HOSTED_ZONE_DOMAIN}/resources/runtime-context")"
-            IDENTITY_AUTHORIZER_ARN="$(printf '%s' "$RUNTIME_CONTEXT_JSON" | jq -r '.identity.authorizerArn // empty')"
-          fi
-          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
-            echo "Unable to resolve IDENTITY_AUTHORIZER_ARN from management-api runtime context." >&2
-            printf '%s\n' "${RUNTIME_CONTEXT_JSON:-}" >&2
-            exit 1
-          fi
-
-          DEPLOY_CONFIG_JSON="$(jq -cn \
-            --arg subdomain "$TARGET_INSTANCE_ID" \
-            --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
-            --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
-            --arg releaseTag "$RELEASE_TAG" \
-            --arg packageVersion "$PACKAGE_VERSION" \
-            '{
-              Subdomain: $subdomain,
-              HostedZoneDomain: $hostedZoneDomain,
-              IdentityAuthorizerArn: $authorizerArn,
-              RELEASETAGDEFAULT: $releaseTag,
-              PACKAGEVERSIONDEFAULT: $packageVersion
-            }')"
-
-          echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
-
-      - name: Pack template-api package
-        run: |
-          artifact="/tmp/template-api-${PACKAGE_VERSION}.cweb.pkg"
-          cweb package pack --component template-api --version "$PACKAGE_VERSION" --output "$artifact"
-          echo "PACKAGE_ARTIFACT=$artifact" >> "$GITHUB_ENV"
-
-      - name: Publish template-api package to registry
-        env:
-          REGISTRY_API_BASE_URL: https://registry-api.resources.connected-web.services
-          CWEB_CLIENT_ID: ${{ vars.REGISTRY_API_CLIENT_ID != '' && vars.REGISTRY_API_CLIENT_ID || secrets.CWEB_CLIENT_ID }}
-          CWEB_CLIENT_SECRET: ${{ secrets.REGISTRY_API_CLIENT_SECRET != '' && secrets.REGISTRY_API_CLIENT_SECRET || secrets.CWEB_CLIENT_SECRET }}
-          CWEB_CLIENT_TYPE: ${{ vars.REGISTRY_API_CLIENT_TYPE != '' && vars.REGISTRY_API_CLIENT_TYPE || secrets.CWEB_CLIENT_TYPE }}
-        run: cweb -p resources package publish --target registry-api --component template-api --version "$PACKAGE_VERSION" --artifact "$PACKAGE_ARTIFACT" --if-exists-skip
-
-      - name: Deploy template-api package to prod
-        if: ${{ github.event_name == 'release' || inputs.deploy_enabled == true }}
-        env:
-          MANAGEMENT_API_BASE_URL: https://management-api.prod.connected-web.services
-        run: |
-          cweb -p "$TARGET_PROFILE" package deploy \
-            --host remote \
-            --component template-api \
-            --version "$PACKAGE_VERSION" \
-            --instance-id "$TARGET_INSTANCE_ID" \
-            --config "$DEPLOY_CONFIG" \
-            --view detailed \
-            --timeout 900 \
-            --watch
-
-      - name: Summary
-        run: |
-          echo "Production deployment complete (${RELEASE_TYPE}): https://template-api.prod.connected-web.services"
+    needs:
+      - resolve-release
+      - deploy-dev
+    uses: ./.github/workflows/release-package-deploy.yml
+    with:
+      environment_name: prod
+      target_profile: prod
+      target_instance_id: template-api
+      hosted_zone_domain: prod.connected-web.services
+      package_version: ${{ needs.resolve-release.outputs.package_version }}
+      release_tag: ${{ needs.resolve-release.outputs.release_tag }}
+      deploy_enabled: ${{ github.event_name == 'release' || inputs.deploy_prod }}
+    secrets: inherit
