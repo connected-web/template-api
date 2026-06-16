@@ -17,7 +17,6 @@ smokeDescribe('Post-deployment smoke', () => {
       validateStatus: () => true
     })
 
-    // Shared authorizer paths usually return 401/403 without bearer token.
-    expect([200, 401, 403, 404]).toContain(response.status)
+    expect(response.status).toBe(200)
   })
 })

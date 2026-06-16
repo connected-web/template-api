@@ -1,0 +1,71 @@
+name: Release Deploy Prod
+
+on:
+  release:
+    types:
+      - released
+      - prereleased
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Release tag to deploy
+        required: true
+        type: string
+      deploy_prod:
+        description: Deploy to prod after dev succeeds
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  resolve-release:
+    runs-on: ubuntu-latest
+    outputs:
+      package_version: ${{ steps.release.outputs.package_version }}
+      release_tag: ${{ steps.release.outputs.release_tag }}
+    steps:
+      - name: Resolve package version
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag_name }}
+        run: |
+          set -euo pipefail
+          package_version="${RELEASE_TAG#v}"
+          if [ -z "$package_version" ]; then
+            echo "Missing release tag" >&2
+            exit 1
+          fi
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "package_version=$package_version" >> "$GITHUB_OUTPUT"
+
+  deploy-dev:
+    needs: resolve-release
+    uses: ./.github/workflows/release-package-deploy.yml
+    with:
+      environment_name: dev
+      target_profile: dev
+      target_instance_id: template-api
+      hosted_zone_domain: dev.connected-web.services
+      package_version: ${{ needs.resolve-release.outputs.package_version }}
+      release_tag: ${{ needs.resolve-release.outputs.release_tag }}
+      deploy_enabled: true
+    secrets: inherit
+
+  deploy-prod:
+    needs:
+      - resolve-release
+      - deploy-dev
+    uses: ./.github/workflows/release-package-deploy.yml
+    with:
+      environment_name: prod
+      target_profile: prod
+      target_instance_id: template-api
+      hosted_zone_domain: prod.connected-web.services
+      package_version: ${{ needs.resolve-release.outputs.package_version }}
+      release_tag: ${{ needs.resolve-release.outputs.release_tag }}
+      deploy_enabled: ${{ github.event_name == 'release' || inputs.deploy_prod }}
+    secrets: inherit

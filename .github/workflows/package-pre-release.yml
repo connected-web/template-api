@@ -8,8 +8,8 @@ on:
         required: true
         type: choice
         options:
-          - connected-web-dev
-        default: connected-web-dev
+          - dev
+        default: dev
       instance_id:
         description: "Deployment instance ID"
         required: true
@@ -39,14 +39,14 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
+      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Use Node JS LTS
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 20.x
           registry-url: https://npm.pkg.github.com
@@ -67,93 +67,57 @@ jobs:
           fi
 
       - name: Resolve profile for account
-        run: |
-          case "${{ github.event.inputs.account }}" in
-            connected-web-dev)
-              echo "TARGET_PROFILE=dev" >> "$GITHUB_ENV"
-              ;;
-            *)
-              echo "Unsupported account: ${{ github.event.inputs.account }}" >&2
-              exit 1
-              ;;
-          esac
-
-      - name: Resolve account config from cweb profile
-        run: cweb configure -p "$TARGET_PROFILE" --write-github-env
-
-      - name: Login cweb machine identity
-        run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" --get-access-token --machine > /dev/null
+        run: echo "TARGET_PROFILE=dev" >> "$GITHUB_ENV"
 
       - name: Resolve deploy config
         run: |
           set -euo pipefail
-          if jq -e . >/dev/null 2>&1 <<<"$AWS_ACCOUNT_CONFIG"; then
-            ACCOUNT_CONFIG_JSON="$AWS_ACCOUNT_CONFIG"
-          else
-            ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
+          HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-dev.connected-web.services}"
+          DEPLOY_SUBDOMAIN="${{ github.event.inputs.instance_id }}"
+          IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
+          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
+            RUNTIME_CONTEXT_JSON="$(cweb -p "$TARGET_PROFILE" curl -sS "https://management-api.${HOSTED_ZONE_DOMAIN}/resources/runtime-context")"
+            IDENTITY_AUTHORIZER_ARN="$(printf '%s' "$RUNTIME_CONTEXT_JSON" | jq -r '.identity.authorizerArn // empty')"
           fi
-          AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
-          HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-          HOSTED_ZONE_ID="$(jq -r '.hostedZoneId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-
-          if [ -n "${MANAGEMENT_AWS_ACCOUNT_CONFIG:-}" ]; then
-            MANAGEMENT_CONFIG_JSON="$(echo "$MANAGEMENT_AWS_ACCOUNT_CONFIG" | base64 -d)"
-            if [ -z "$HOSTED_ZONE_DOMAIN" ]; then
-              HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$MANAGEMENT_CONFIG_JSON")"
-            fi
-            if [ -z "$HOSTED_ZONE_ID" ]; then
-              HOSTED_ZONE_ID="$(jq -r '.hostedZoneId // empty' <<<"$MANAGEMENT_CONFIG_JSON")"
-            fi
-          fi
-
-          if [ -z "$HOSTED_ZONE_DOMAIN" ]; then
-            PREFIX="$(jq -r '.prefix // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-            PARENT_ZONE="$(jq -r '.parentZone // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-            if [ -n "$PREFIX" ] && [ -n "$PARENT_ZONE" ]; then
-              HOSTED_ZONE_DOMAIN="$PREFIX.$PARENT_ZONE"
-            fi
-          fi
-
-          if [ -z "$HOSTED_ZONE_DOMAIN" ] || [ -z "$AUTHORIZER_ARN" ]; then
-            echo "Unable to resolve required deploy config values (HostedZoneDomain / identity.authorizerArn)." >&2
-            echo "Expected cweb configure to provide IDENTITY_AUTHORIZER_ARN and hosted zone metadata." >&2
+          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
+            echo "Unable to resolve IDENTITY_AUTHORIZER_ARN from management-api runtime context." >&2
+            printf '%s\n' "${RUNTIME_CONTEXT_JSON:-}" >&2
             exit 1
           fi
-
-          DEPLOY_SUBDOMAIN="${{ github.event.inputs.instance_id }}"
           DEPLOY_CONFIG_JSON="$(jq -cn \
             --arg subdomain "$DEPLOY_SUBDOMAIN" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
-            --arg hostedZoneId "$HOSTED_ZONE_ID" \
-            --arg authorizerArn "$AUTHORIZER_ARN" \
+            --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
+            --arg packageVersion "$PACKAGE_VERSION" \
             '{
               Subdomain: $subdomain,
               HostedZoneDomain: $hostedZoneDomain,
-              IDENTITY_AUTHORIZER_ARN: $authorizerArn
-            }
-            + (if ($hostedZoneId | length) > 0 then { HostedZoneId: $hostedZoneId } else {} end)')"
+              IdentityAuthorizerArn: $authorizerArn,
+              RELEASETAGDEFAULT: "",
+              PACKAGEVERSIONDEFAULT: $packageVersion
+            }')"
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
 
       - name: Pack template-api package
-        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package pack --component template-api --version "$PACKAGE_VERSION"
-
-      - name: Publish template-api package
-        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package publish --component template-api --version "$PACKAGE_VERSION"
+        run: cweb package pack --component template-api --version "$PACKAGE_VERSION"
 
       - name: Publish to registry
         env:
           REGISTRY_API_BASE_URL: https://registry-api.resources.connected-web.services
-          CWEB_CLIENT_ID: ${{ vars.REGISTRY_API_CLIENT_ID }}
-          CWEB_CLIENT_TYPE: ${{ vars.REGISTRY_API_CLIENT_TYPE }}
-          CWEB_CLIENT_SECRET: ${{ secrets.REGISTRY_API_CLIENT_SECRET }}
+          CWEB_CLIENT_ID: ${{ vars.REGISTRY_API_CLIENT_ID != '' && vars.REGISTRY_API_CLIENT_ID || secrets.CWEB_CLIENT_ID }}
+          CWEB_CLIENT_TYPE: ${{ vars.REGISTRY_API_CLIENT_TYPE != '' && vars.REGISTRY_API_CLIENT_TYPE || secrets.CWEB_CLIENT_TYPE }}
+          CWEB_CLIENT_SECRET: ${{ secrets.REGISTRY_API_CLIENT_SECRET != '' && secrets.REGISTRY_API_CLIENT_SECRET || secrets.CWEB_CLIENT_SECRET }}
         run: cweb -p "$TARGET_PROFILE" package publish --target registry-api --component template-api --version "$PACKAGE_VERSION" --artifact ".cweb/dist/template-api-${PACKAGE_VERSION}.cweb.pkg"
 
       - name: Deploy template-api package
         if: ${{ github.event.inputs.deploy_enabled == 'true' }}
         run: |
-          cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package deploy \
+          cweb -p "$TARGET_PROFILE" package deploy \
             --host remote \
             --component template-api \
             --version "$PACKAGE_VERSION" \
             --instance-id "${{ github.event.inputs.instance_id }}" \
-            --config "$DEPLOY_CONFIG"
+            --config "$DEPLOY_CONFIG" \
+            --view detailed \
+            --timeout 900 \
+            --watch

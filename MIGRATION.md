@@ -13,8 +13,6 @@ This guide describes how to migrate a Connected Web service repo to the same pat
   - `npm install -g @connected-web/cweb`
 - GitHub admin/maintainer rights for the target repo
 - Ability to run `cweb repo bootstrap` with admin credentials
-- Repo includes account config files under:
-  - `.github/workflows/accounts/*.json`
 
 ## 2. Bootstrap GitHub Environments and Machine Credentials
 
@@ -67,16 +65,15 @@ For each pack/publish/deploy workflow job:
   - `NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN }}`
   - `CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}`
   - `CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}`
-  - `CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts`
+  - `CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}`
 
 Use:
 
 ```bash
-cweb configure -p "$TARGET_PROFILE" --write-github-env
-cweb login -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" --get-access-token --machine > /dev/null
+cweb -p "$TARGET_PROFILE" package deploy --host remote ...
 ```
 
-`cweb configure` exports environment variables (including `USER_POOL_ID`, `AWS_ACCOUNT_CONFIG`, `IDENTITY_AUTHORIZER_ARN`, `MANAGEMENT_AWS_ACCOUNT_CONFIG`) used to build deploy config.
+The workflow should rely on the cweb CLI and platform bootstrap to resolve profiles. Do not write account JSON or cweb state files inside service repository workflows.
 
 ## 5. Deploy Config Required by Template API
 
@@ -84,17 +81,18 @@ Remote deploy config schema (current pattern):
 
 - `Subdomain`
 - `HostedZoneDomain`
-- `IDENTITY_AUTHORIZER_ARN`
-- Optional: `HostedZoneId`
+- `IdentityAuthorizerArn`
+- `RELEASETAGDEFAULT`
+- `PACKAGEVERSIONDEFAULT`
 
-In this repo, workflows resolve these values from `cweb configure` outputs with fallbacks.
+The deployment worker supplies account-specific context such as `HostedZoneId`, target account ID, and the CloudFormation execution role.
 
 ## 6. Package and Deploy Commands
 
 ```bash
-cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package pack --component template-api --version "$PACKAGE_VERSION"
-cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package publish --component template-api --version "$PACKAGE_VERSION"
-cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package deploy \
+cweb package pack --component template-api --version "$PACKAGE_VERSION"
+cweb -p resources package publish --target registry-api --component template-api --version "$PACKAGE_VERSION" --artifact "$PACKAGE_ARTIFACT"
+cweb -p "$TARGET_PROFILE" package deploy \
   --host remote \
   --component template-api \
   --version "$PACKAGE_VERSION" \
@@ -102,11 +100,7 @@ cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package deploy \
   --config "$DEPLOY_CONFIG"
 ```
 
-Recommended in CI: parse `Item ID` from deploy output and call:
-
-```bash
-cweb -p "$TARGET_PROFILE" deployments watch --item-id "$DEPLOY_ITEM_ID"
-```
+Recommended in CI: deploy with `--watch --timeout <seconds>` so the workflow reports the management worker result.
 
 ## 7. Release Process Pattern
 
@@ -125,11 +119,10 @@ cweb -p "$TARGET_PROFILE" deployments watch --item-id "$DEPLOY_ITEM_ID"
 
 ## 8. Converting Another Service Repo
 
-1. Add/verify `.github/workflows/accounts/*.json` entries for target accounts.
-2. Add pack/publish/deploy workflows using the environment/secrets contract above.
-3. Ensure service deploy schema accepts injected config (authorizer ARN/domain), not repo-hardcoded OIDC parameters.
-4. Bootstrap repo environments with `cweb repo bootstrap`.
-5. Validate with:
+1. Add pack/publish/deploy workflows using the environment/secrets contract above.
+2. Ensure service deploy schema accepts injected config such as authorizer ARN, domain, release tag, and package version.
+3. Bootstrap repo environments with `cweb repo bootstrap`.
+4. Validate with:
    - PR check workflow
    - `cweb repo verify` for dev/prod
 
@@ -138,9 +131,9 @@ cweb -p "$TARGET_PROFILE" deployments watch --item-id "$DEPLOY_ITEM_ID"
 - `403` installing `@connected-web/*` packages:
   - `CONNECTED_WEB_PACKAGES_TOKEN` missing scope/permissions.
 - `No machine credentials available`:
-  - `CWEB_CLIENT_ID` / `CWEB_CLIENT_SECRET` missing in the job environment.
-- `Account config not found for connected-web-dev`:
-  - `CWEB_ACCOUNTS_DIR` not set in workflow.
+  - `CWEB_CLIENT_ID` / `CWEB_CLIENT_SECRET` / `CWEB_CLIENT_TYPE` missing in the job environment.
+- `Unknown cweb profile`:
+  - The runner or cweb CLI bootstrap cannot resolve the target profile. Fix profile discovery in cweb/platform setup rather than adding account files to the service repo.
 - Deploy schema errors (`must NOT have additional properties`):
   - Deploy config contains keys not in CHASM schema.
 - Authorizer runtime/permission failures:

@@ -6,23 +6,27 @@ on:
       - main
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
+  packages: read
   pull-requests: write
 
 jobs:
   test-cdk-api:
     name: Test CDK API
     runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Use Node JS LTS
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 20.x
+          registry-url: https://npm.pkg.github.com
+          scope: '@connected-web'
 
       - name: Install npm dependencies
         run: npm ci
@@ -31,26 +35,25 @@ jobs:
         run: npm run test
 
   package-deploy-dev:
-    name: Package Deploy (dev)
+    name: Package and deploy API to dev
     needs: ['test-cdk-api']
     runs-on: ubuntu-latest
     environment: dev
     env:
-      NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN }}
+      NODE_AUTH_TOKEN: ${{ secrets.CONNECTED_WEB_PACKAGES_TOKEN != '' && secrets.CONNECTED_WEB_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      CWEB_ACCOUNTS_DIR: ${{ github.workspace }}/.github/workflows/accounts
-      TARGET_ACCOUNT: connected-web-dev
+      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
       TARGET_PROFILE: dev
       TARGET_INSTANCE_ID: template-api
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Use Node JS LTS
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 20.x
           registry-url: https://npm.pkg.github.com
@@ -62,168 +65,87 @@ jobs:
       - name: Install cweb CLI
         run: npm install -g @connected-web/cweb
 
-      - name: Verify machine credentials are configured
-        run: |
-          set -euo pipefail
-          if [ -z "${CWEB_CLIENT_ID:-}" ] || [ -z "${CWEB_CLIENT_SECRET:-}" ] || [ -z "${CWEB_CLIENT_TYPE:-}" ]; then
-            echo "Missing CWEB_CLIENT_ID/CWEB_CLIENT_SECRET/CWEB_CLIENT_TYPE for CI machine login." >&2
-            echo "Bootstrap once from an operator workstation, then set GitHub secrets." >&2
-            echo "Example: cweb repo bootstrap -p dev --org connected-web --repo template-api --env dev" >&2
-            exit 1
-          fi
-
-      - name: Resolve pre-release package version
-        run: echo "PACKAGE_VERSION=0.0.0-pr.${{ github.event.pull_request.number || github.run_number }}.${{ github.run_attempt }}" >> "$GITHUB_ENV"
-
-      - name: Resolve account config from cweb profile
-        run: cweb configure -p "$TARGET_PROFILE" --write-github-env
-
-      - name: Login cweb machine identity
-        run: cweb login -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" --get-access-token --machine > /dev/null
+      - name: Resolve package version
+        run: echo "PACKAGE_VERSION=0.0.0-pr.${{ github.event.pull_request.number || github.run_number }}.${{ github.run_number }}.${{ github.run_attempt }}" >> "$GITHUB_ENV"
 
       - name: Resolve deploy config
         run: |
           set -euo pipefail
-          if jq -e . >/dev/null 2>&1 <<<"$AWS_ACCOUNT_CONFIG"; then
-            ACCOUNT_CONFIG_JSON="$AWS_ACCOUNT_CONFIG"
-          else
-            ACCOUNT_CONFIG_JSON="$(echo "$AWS_ACCOUNT_CONFIG" | base64 -d)"
-          fi
-          AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
-          HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-          HOSTED_ZONE_ID="$(jq -r '.hostedZoneId // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-
-          if [ -n "${MANAGEMENT_AWS_ACCOUNT_CONFIG:-}" ]; then
-            MANAGEMENT_CONFIG_JSON="$(echo "$MANAGEMENT_AWS_ACCOUNT_CONFIG" | base64 -d)"
-            if [ -z "$HOSTED_ZONE_DOMAIN" ]; then
-              HOSTED_ZONE_DOMAIN="$(jq -r '.hostedZoneDomain // empty' <<<"$MANAGEMENT_CONFIG_JSON")"
-            fi
-            if [ -z "$HOSTED_ZONE_ID" ]; then
-              HOSTED_ZONE_ID="$(jq -r '.hostedZoneId // empty' <<<"$MANAGEMENT_CONFIG_JSON")"
-            fi
-          fi
-
+          HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-dev.connected-web.services}"
           if [ -z "$HOSTED_ZONE_DOMAIN" ]; then
-            PREFIX="$(jq -r '.prefix // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-            PARENT_ZONE="$(jq -r '.parentZone // empty' <<<"$ACCOUNT_CONFIG_JSON")"
-            if [ -n "$PREFIX" ] && [ -n "$PARENT_ZONE" ]; then
-              HOSTED_ZONE_DOMAIN="$PREFIX.$PARENT_ZONE"
-            fi
+            echo "Missing HOSTED_ZONE_DOMAIN workflow var." >&2
+            exit 1
           fi
-
-          if [ -z "$HOSTED_ZONE_DOMAIN" ] || [ -z "$AUTHORIZER_ARN" ]; then
-            echo "Unable to resolve required deploy config values (HostedZoneDomain / identity.authorizerArn)." >&2
-            echo "Expected cweb configure to provide IDENTITY_AUTHORIZER_ARN and hosted zone metadata." >&2
+          IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
+          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
+            RUNTIME_CONTEXT_JSON="$(cweb -p "$TARGET_PROFILE" curl -sS "https://management-api.${HOSTED_ZONE_DOMAIN}/resources/runtime-context")"
+            IDENTITY_AUTHORIZER_ARN="$(printf '%s' "$RUNTIME_CONTEXT_JSON" | jq -r '.identity.authorizerArn // empty')"
+          fi
+          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
+            echo "Unable to resolve IDENTITY_AUTHORIZER_ARN from management-api runtime context." >&2
+            printf '%s\n' "${RUNTIME_CONTEXT_JSON:-}" >&2
             exit 1
           fi
 
           DEPLOY_CONFIG_JSON="$(jq -cn \
             --arg subdomain "$TARGET_INSTANCE_ID" \
             --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
-            --arg hostedZoneId "$HOSTED_ZONE_ID" \
-            --arg authorizerArn "$AUTHORIZER_ARN" \
+            --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
+            --arg packageVersion "$PACKAGE_VERSION" \
             '{
               Subdomain: $subdomain,
               HostedZoneDomain: $hostedZoneDomain,
-              IDENTITY_AUTHORIZER_ARN: $authorizerArn
-            }
-            + (if ($hostedZoneId | length) > 0 then { HostedZoneId: $hostedZoneId } else {} end)')"
+              IdentityAuthorizerArn: $authorizerArn,
+              RELEASETAGDEFAULT: "",
+              PACKAGEVERSIONDEFAULT: $packageVersion
+            }')"
+
           echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
           echo "DEPLOY_BASE_URL=https://${TARGET_INSTANCE_ID}.${HOSTED_ZONE_DOMAIN}" >> "$GITHUB_ENV"
 
       - name: Pack template-api package
-        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package pack --component template-api --version "$PACKAGE_VERSION"
+        run: |
+          artifact="/tmp/template-api-${PACKAGE_VERSION}.cweb.pkg"
+          cweb package pack --component template-api --version "$PACKAGE_VERSION" --output "$artifact"
+          echo "PACKAGE_ARTIFACT=$artifact" >> "$GITHUB_ENV"
 
-      - name: Publish template-api package
-        run: cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package publish --component template-api --version "$PACKAGE_VERSION"
+      - name: Publish template-api package to registry
+        env:
+          REGISTRY_API_BASE_URL: https://registry-api.resources.connected-web.services
+          CWEB_CLIENT_ID: ${{ vars.REGISTRY_API_CLIENT_ID != '' && vars.REGISTRY_API_CLIENT_ID || secrets.CWEB_CLIENT_ID }}
+          CWEB_CLIENT_SECRET: ${{ secrets.REGISTRY_API_CLIENT_SECRET != '' && secrets.REGISTRY_API_CLIENT_SECRET || secrets.CWEB_CLIENT_SECRET }}
+          CWEB_CLIENT_TYPE: ${{ vars.REGISTRY_API_CLIENT_TYPE != '' && vars.REGISTRY_API_CLIENT_TYPE || secrets.CWEB_CLIENT_TYPE }}
+        run: cweb -p resources package publish --target registry-api --component template-api --version "$PACKAGE_VERSION" --artifact "$PACKAGE_ARTIFACT" --if-exists-skip
 
-      - name: Deploy template-api package
+      - name: Deploy template-api package to dev
+        env:
+          MANAGEMENT_API_BASE_URL: https://management-api.dev.connected-web.services
         run: |
           set -euo pipefail
-          DEPLOY_OUTPUT="$(cweb -p "$TARGET_PROFILE" --user-pool-id "$USER_POOL_ID" package deploy \
+          cweb -p "$TARGET_PROFILE" package deploy \
             --host remote \
             --component template-api \
             --version "$PACKAGE_VERSION" \
             --instance-id "$TARGET_INSTANCE_ID" \
-            --config "$DEPLOY_CONFIG")"
+            --config "$DEPLOY_CONFIG" \
+            --view detailed \
+            --timeout 900 \
+            --watch
 
-          echo "$DEPLOY_OUTPUT"
-          DEPLOY_ITEM_ID="$(printf '%s\n' "$DEPLOY_OUTPUT" | sed -n "s/^Item ID: //p" | tail -n1)"
-          if [ -z "$DEPLOY_ITEM_ID" ]; then
-            echo "Failed to parse deployment item id from cweb output." >&2
-            exit 1
-          fi
-
-          echo "DEPLOY_ITEM_ID=$DEPLOY_ITEM_ID" >> "$GITHUB_ENV"
-          cweb -p "$TARGET_PROFILE" deployments watch --item-id "$DEPLOY_ITEM_ID"
-
-      - name: Validate deployment outputs from Management API
+      - name: Smoke test deployed OpenAPI
         run: |
           set -euo pipefail
+          openapi_json="$(curl --fail --silent --show-error --retry 20 --retry-delay 15 --retry-all-errors "$DEPLOY_BASE_URL/openapi")"
+          printf '%s\n' "$openapi_json" | jq -e '.paths["/status"]' >/dev/null
 
-          DEPLOYMENT_JSON="$(cweb -p "$TARGET_PROFILE" deployments describe --item-id "$DEPLOY_ITEM_ID")"
-          echo "$DEPLOYMENT_JSON"
-
-          EXPECTED_BASE_URL="$DEPLOY_BASE_URL"
-          EXPECTED_OPENAPI_URL="${EXPECTED_BASE_URL}/openapi"
-          EXPECTED_STATUS_URL="${EXPECTED_BASE_URL}/status"
-
-          ACTUAL_BASE_URL="$(jq -r '.deployment.outputs.ApiBaseUrl // empty' <<<"$DEPLOYMENT_JSON")"
-          ACTUAL_OPENAPI_URL="$(jq -r '.deployment.outputs.OpenAPISpecEndpoint // empty' <<<"$DEPLOYMENT_JSON")"
-          ACTUAL_STATUS_URL="$(jq -r '.deployment.outputs.StatusEndpoint // empty' <<<"$DEPLOYMENT_JSON")"
-          ACTUAL_GATEWAY_URL="$(jq -r '.deployment.outputs.ApiGatewayEndpoint // empty' <<<"$DEPLOYMENT_JSON")"
-
-          if [ "$ACTUAL_BASE_URL" != "$EXPECTED_BASE_URL" ]; then
-            echo "ApiBaseUrl mismatch: expected '$EXPECTED_BASE_URL', got '$ACTUAL_BASE_URL'" >&2
+      - name: Verify deployed status metadata
+        run: |
+          set -euo pipefail
+          status_json="$(cweb -p "$TARGET_PROFILE" curl -sS "$DEPLOY_BASE_URL/status")"
+          actual_package_version="$(printf '%s' "$status_json" | jq -r '.packageVersion // empty')"
+          if [ "$actual_package_version" != "$PACKAGE_VERSION" ]; then
+            echo "Expected /status packageVersion '$PACKAGE_VERSION', got '$actual_package_version'." >&2
+            printf '%s\n' "$status_json" >&2
             exit 1
           fi
-
-          if [ "$ACTUAL_OPENAPI_URL" != "$EXPECTED_OPENAPI_URL" ]; then
-            echo "OpenAPISpecEndpoint mismatch: expected '$EXPECTED_OPENAPI_URL', got '$ACTUAL_OPENAPI_URL'" >&2
-            exit 1
-          fi
-
-          if [ "$ACTUAL_STATUS_URL" != "$EXPECTED_STATUS_URL" ]; then
-            echo "StatusEndpoint mismatch: expected '$EXPECTED_STATUS_URL', got '$ACTUAL_STATUS_URL'" >&2
-            exit 1
-          fi
-
-          if [ -z "$ACTUAL_GATEWAY_URL" ]; then
-            echo "ApiGatewayEndpoint output is empty" >&2
-            exit 1
-          fi
-
-  post-deployment-tests:
-    name: Post-deployment Tests for API
-    needs: ['package-deploy-dev']
-    runs-on: ubuntu-latest
-    environment: dev
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Use Node JS LTS
-        uses: actions/setup-node@v5
-        with:
-          node-version: 20.x
-
-      - name: Install npm dependencies (api)
-        run: npm install
-        working-directory: ./api
-
-      - name: Run post-deployment smoke test
-        run: npm run test:post-deployment
-        working-directory: ./api
-        env:
-          POST_DEPLOYMENT_SERVER_DOMAIN: https://template-api.dev.connected-web.services
-          POST_DEPLOYMENT_SMOKE_ONLY: "true"
-
-  publish-npm-client:
-    name: Publish NPM Client
-    needs: ['post-deployment-tests']
-    uses: ./.github/workflows/publish-npm-client.yml
-    with:
-      environment-name: dev
-      oauth-token-endpoint: https://connected-web-dev.auth.eu-west-2.amazoncognito.com/oauth2/token
-      openapi-spec-url: https://template-api.dev.connected-web.services/openapi
-    secrets: inherit
+          printf '%s\n' "$status_json" | jq '{ok, service, releaseTag, packageVersion, buildVersion}'
