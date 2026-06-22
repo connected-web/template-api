@@ -39,7 +39,6 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
 
     steps:
       - name: Checkout
@@ -69,34 +68,10 @@ jobs:
       - name: Resolve profile for account
         run: echo "TARGET_PROFILE=dev" >> "$GITHUB_ENV"
 
-      - name: Resolve deploy config
+      - name: Resolve deploy target
         run: |
           set -euo pipefail
-          HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-dev.connected-web.services}"
-          DEPLOY_SUBDOMAIN="${{ github.event.inputs.instance_id }}"
-          IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
-          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
-            RUNTIME_CONTEXT_JSON="$(cweb -p "$TARGET_PROFILE" curl -sS "https://management-api.${HOSTED_ZONE_DOMAIN}/resources/runtime-context")"
-            IDENTITY_AUTHORIZER_ARN="$(printf '%s' "$RUNTIME_CONTEXT_JSON" | jq -r '.identity.authorizerArn // empty')"
-          fi
-          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
-            echo "Unable to resolve IDENTITY_AUTHORIZER_ARN from management-api runtime context." >&2
-            printf '%s\n' "${RUNTIME_CONTEXT_JSON:-}" >&2
-            exit 1
-          fi
-          DEPLOY_CONFIG_JSON="$(jq -cn \
-            --arg subdomain "$DEPLOY_SUBDOMAIN" \
-            --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
-            --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
-            --arg packageVersion "$PACKAGE_VERSION" \
-            '{
-              Subdomain: $subdomain,
-              HostedZoneDomain: $hostedZoneDomain,
-              IdentityAuthorizerArn: $authorizerArn,
-              RELEASETAGDEFAULT: "",
-              PACKAGEVERSIONDEFAULT: $packageVersion
-            }')"
-          echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
+          echo "DEPLOY_CONFIG={}" >> "$GITHUB_ENV"
 
       - name: Pack template-api package
         run: cweb package pack --component template-api --version "$PACKAGE_VERSION"

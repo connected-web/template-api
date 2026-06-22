@@ -24,7 +24,7 @@ Pull requests package `template-api` as a `.cweb.pkg`, publish only that package
 
 GitHub Actions do not assume AWS roles directly and do not carry account JSON. The workflow uses cweb machine credentials to publish to `registry-api` and request a remote deployment. The management API deployment worker owns the AWS-side execution: account context, hosted-zone lookup, CloudFormation execution role, and stack create/update.
 
-The template owns the CloudFormation it emits and the package-level deploy config it requires. For this API that config is the target subdomain, hosted-zone domain, shared identity authorizer ARN, release tag, and package version.
+The template owns the CloudFormation it emits. Connected Web supplies platform-owned deployment parameters such as subdomain, hosted-zone domain, shared identity authorizer ARN, release tag, and package version from the deployment instance, package metadata, and target environment.
 
 ### Endpoints
 
