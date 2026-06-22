@@ -75,17 +75,18 @@ cweb -p "$TARGET_PROFILE" package deploy --host remote ...
 
 The workflow should rely on the cweb CLI and platform bootstrap to resolve profiles. Do not write account JSON or cweb state files inside service repository workflows.
 
-## 5. Deploy Config Required by Template API
+## 5. Deploy Config Supplied by Connected Web
 
-Remote deploy config schema (current pattern):
+Normal remote deploys should not require repository workflows or operators to pass platform-owned config. Connected Web supplies these CloudFormation parameters from the deployment instance, package metadata, target account config, and deployment worker:
 
 - `Subdomain`
 - `HostedZoneDomain`
+- `HostedZoneId`
 - `IdentityAuthorizerArn`
 - `RELEASETAGDEFAULT`
 - `PACKAGEVERSIONDEFAULT`
 
-The deployment worker supplies account-specific context such as `HostedZoneId`, target account ID, and the CloudFormation execution role.
+The deployment worker also supplies account-specific context such as target account ID and the CloudFormation execution role.
 
 ## 6. Package and Deploy Commands
 

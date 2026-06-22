@@ -44,7 +44,6 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
       TARGET_PROFILE: dev
       TARGET_INSTANCE_ID: template-api
 
@@ -68,7 +67,7 @@ jobs:
       - name: Resolve package version
         run: echo "PACKAGE_VERSION=0.0.0-pr.${{ github.event.pull_request.number || github.run_number }}.${{ github.run_number }}.${{ github.run_attempt }}" >> "$GITHUB_ENV"
 
-      - name: Resolve deploy config
+      - name: Resolve deploy target
         run: |
           set -euo pipefail
           HOSTED_ZONE_DOMAIN="${HOSTED_ZONE_DOMAIN:-dev.connected-web.services}"
@@ -76,31 +75,7 @@ jobs:
             echo "Missing HOSTED_ZONE_DOMAIN workflow var." >&2
             exit 1
           fi
-          IDENTITY_AUTHORIZER_ARN="${IDENTITY_AUTHORIZER_ARN:-}"
-          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
-            RUNTIME_CONTEXT_JSON="$(cweb -p "$TARGET_PROFILE" curl -sS "https://management-api.${HOSTED_ZONE_DOMAIN}/resources/runtime-context")"
-            IDENTITY_AUTHORIZER_ARN="$(printf '%s' "$RUNTIME_CONTEXT_JSON" | jq -r '.identity.authorizerArn // empty')"
-          fi
-          if [ -z "$IDENTITY_AUTHORIZER_ARN" ]; then
-            echo "Unable to resolve IDENTITY_AUTHORIZER_ARN from management-api runtime context." >&2
-            printf '%s\n' "${RUNTIME_CONTEXT_JSON:-}" >&2
-            exit 1
-          fi
-
-          DEPLOY_CONFIG_JSON="$(jq -cn \
-            --arg subdomain "$TARGET_INSTANCE_ID" \
-            --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
-            --arg authorizerArn "$IDENTITY_AUTHORIZER_ARN" \
-            --arg packageVersion "$PACKAGE_VERSION" \
-            '{
-              Subdomain: $subdomain,
-              HostedZoneDomain: $hostedZoneDomain,
-              IdentityAuthorizerArn: $authorizerArn,
-              RELEASETAGDEFAULT: "",
-              PACKAGEVERSIONDEFAULT: $packageVersion
-            }')"
-
-          echo "DEPLOY_CONFIG=$DEPLOY_CONFIG_JSON" >> "$GITHUB_ENV"
+          echo "DEPLOY_CONFIG={}" >> "$GITHUB_ENV"
           echo "DEPLOY_BASE_URL=https://${TARGET_INSTANCE_ID}.${HOSTED_ZONE_DOMAIN}" >> "$GITHUB_ENV"
 
       - name: Pack template-api package

@@ -41,7 +41,6 @@ jobs:
       CWEB_CLIENT_ID: ${{ secrets.CWEB_CLIENT_ID }}
       CWEB_CLIENT_SECRET: ${{ secrets.CWEB_CLIENT_SECRET }}
       CWEB_CLIENT_TYPE: ${{ secrets.CWEB_CLIENT_TYPE }}
-      IDENTITY_AUTHORIZER_ARN: ${{ vars.IDENTITY_AUTHORIZER_ARN }}
       TARGET_PROFILE: ${{ inputs.target_profile }}
       TARGET_INSTANCE_ID: ${{ inputs.target_instance_id }}
       HOSTED_ZONE_DOMAIN: ${{ inputs.hosted_zone_domain }}
@@ -69,32 +68,7 @@ jobs:
         run: npm install -g @connected-web/cweb
 
       - name: Resolve deploy config
-        run: |
-          set -euo pipefail
-          authorizer_arn="${IDENTITY_AUTHORIZER_ARN:-}"
-          if [ -z "$authorizer_arn" ]; then
-            runtime_context="$(cweb -p "$TARGET_PROFILE" curl -sS "https://management-api.${HOSTED_ZONE_DOMAIN}/resources/runtime-context")"
-            authorizer_arn="$(printf '%s' "$runtime_context" | jq -r '.identity.authorizerArn // empty')"
-          fi
-          if [ -z "$authorizer_arn" ]; then
-            echo "Unable to resolve IdentityAuthorizerArn." >&2
-            printf '%s\n' "${runtime_context:-}" >&2
-            exit 1
-          fi
-          deploy_config="$(jq -cn \
-            --arg subdomain "$TARGET_INSTANCE_ID" \
-            --arg hostedZoneDomain "$HOSTED_ZONE_DOMAIN" \
-            --arg authorizerArn "$authorizer_arn" \
-            --arg releaseTag "$RELEASE_TAG" \
-            --arg packageVersion "$PACKAGE_VERSION" \
-            '{
-              Subdomain: $subdomain,
-              HostedZoneDomain: $hostedZoneDomain,
-              IdentityAuthorizerArn: $authorizerArn,
-              RELEASETAGDEFAULT: $releaseTag,
-              PACKAGEVERSIONDEFAULT: $packageVersion
-            }')"
-          echo "DEPLOY_CONFIG=$deploy_config" >> "$GITHUB_ENV"
+        run: echo "DEPLOY_CONFIG={}" >> "$GITHUB_ENV"
 
       - name: Pack template-api package
         if: ${{ inputs.publish_enabled }}

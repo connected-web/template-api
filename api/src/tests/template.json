@@ -30,6 +30,20 @@
       "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
     }
   },
+  "Conditions": {
+    "HasIdentityAuthorizer": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "IdentityAuthorizerArn"
+            },
+            ""
+          ]
+        }
+      ]
+    }
+  },
   "Resources": {
     "TemplateAPIExistingApiRequestAuthorizerB2BF5B31": {
       "Type": "AWS::ApiGateway::Authorizer",
@@ -81,7 +95,8 @@
           "Ref": "TemplateAPICE2A2E42"
         },
         "Type": "REQUEST"
-      }
+      },
+      "Condition": "HasIdentityAuthorizer"
     },
     "TemplateAPICE2A2E42": {
       "Type": "AWS::ApiGateway::RestApi",
@@ -127,15 +142,10 @@
       "Type": "AWS::ApiGateway::Account",
       "Properties": {
         "CloudWatchRoleArn": {
-          "Fn::GetAtt": [
-            "TemplateAPICloudWatchRole973DFC1C",
-            "Arn"
-          ]
+          "Fn::GetAtt": ["TemplateAPICloudWatchRole973DFC1C", "Arn"]
         }
       },
-      "DependsOn": [
-        "TemplateAPICE2A2E42"
-      ],
+      "DependsOn": ["TemplateAPICE2A2E42"],
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
     },
@@ -183,9 +193,7 @@
         },
         "StageName": "v1"
       },
-      "DependsOn": [
-        "TemplateAPIAccountE066AC80"
-      ]
+      "DependsOn": ["TemplateAPIAccountE066AC80"]
     },
     "TemplateAPIOPTIONS1705015A": {
       "Type": "AWS::ApiGateway::Method",
@@ -222,10 +230,7 @@
           }
         ],
         "ResourceId": {
-          "Fn::GetAtt": [
-            "TemplateAPICE2A2E42",
-            "RootResourceId"
-          ]
+          "Fn::GetAtt": ["TemplateAPICE2A2E42", "RootResourceId"]
         },
         "RestApiId": {
           "Ref": "TemplateAPICE2A2E42"
@@ -236,10 +241,7 @@
       "Type": "AWS::ApiGateway::Resource",
       "Properties": {
         "ParentId": {
-          "Fn::GetAtt": [
-            "TemplateAPICE2A2E42",
-            "RootResourceId"
-          ]
+          "Fn::GetAtt": ["TemplateAPICE2A2E42", "RootResourceId"]
         },
         "PathPart": "status",
         "RestApiId": {
@@ -294,10 +296,7 @@
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
-          "Fn::GetAtt": [
-            "TemplateAPIGetStatus25B03D29",
-            "Arn"
-          ]
+          "Fn::GetAtt": ["TemplateAPIGetStatus25B03D29", "Arn"]
         },
         "Principal": "apigateway.amazonaws.com",
         "SourceArn": {
@@ -327,10 +326,7 @@
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
-          "Fn::GetAtt": [
-            "TemplateAPIGetStatus25B03D29",
-            "Arn"
-          ]
+          "Fn::GetAtt": ["TemplateAPIGetStatus25B03D29", "Arn"]
         },
         "Principal": "apigateway.amazonaws.com",
         "SourceArn": {
@@ -354,17 +350,24 @@
     "TemplateAPIstatusGET34D6BD01": {
       "Type": "AWS::ApiGateway::Method",
       "Properties": {
-        "AuthorizationType": "CUSTOM",
+        "AuthorizationType": {
+          "Fn::If": ["HasIdentityAuthorizer", "CUSTOM", "NONE"]
+        },
         "AuthorizerId": {
-          "Ref": "TemplateAPIExistingApiRequestAuthorizerB2BF5B31"
+          "Fn::If": [
+            "HasIdentityAuthorizer",
+            {
+              "Ref": "TemplateAPIExistingApiRequestAuthorizerB2BF5B31"
+            },
+            {
+              "Ref": "AWS::NoValue"
+            }
+          ]
         },
         "HttpMethod": "GET",
         "Integration": {
           "Credentials": {
-            "Fn::GetAtt": [
-              "TemplateAPIApiExecutionRoleE18C505F",
-              "Arn"
-            ]
+            "Fn::GetAtt": ["TemplateAPIApiExecutionRoleE18C505F", "Arn"]
           },
           "IntegrationHttpMethod": "POST",
           "Type": "AWS_PROXY",
@@ -378,10 +381,7 @@
                 },
                 ":apigateway:eu-west-2:lambda:path/2015-03-31/functions/",
                 {
-                  "Fn::GetAtt": [
-                    "TemplateAPIGetStatus25B03D29",
-                    "Arn"
-                  ]
+                  "Fn::GetAtt": ["TemplateAPIGetStatus25B03D29", "Arn"]
                 },
                 "/invocations"
               ]
@@ -416,10 +416,7 @@
       "Type": "AWS::ApiGateway::Resource",
       "Properties": {
         "ParentId": {
-          "Fn::GetAtt": [
-            "TemplateAPICE2A2E42",
-            "RootResourceId"
-          ]
+          "Fn::GetAtt": ["TemplateAPICE2A2E42", "RootResourceId"]
         },
         "PathPart": "openapi",
         "RestApiId": {
@@ -474,10 +471,7 @@
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
-          "Fn::GetAtt": [
-            "TemplateAPIGetOpenAPISpec4933EE24",
-            "Arn"
-          ]
+          "Fn::GetAtt": ["TemplateAPIGetOpenAPISpec4933EE24", "Arn"]
         },
         "Principal": "apigateway.amazonaws.com",
         "SourceArn": {
@@ -507,10 +501,7 @@
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
-          "Fn::GetAtt": [
-            "TemplateAPIGetOpenAPISpec4933EE24",
-            "Arn"
-          ]
+          "Fn::GetAtt": ["TemplateAPIGetOpenAPISpec4933EE24", "Arn"]
         },
         "Principal": "apigateway.amazonaws.com",
         "SourceArn": {
@@ -538,10 +529,7 @@
         "HttpMethod": "GET",
         "Integration": {
           "Credentials": {
-            "Fn::GetAtt": [
-              "TemplateAPIApiExecutionRoleE18C505F",
-              "Arn"
-            ]
+            "Fn::GetAtt": ["TemplateAPIApiExecutionRoleE18C505F", "Arn"]
           },
           "IntegrationHttpMethod": "POST",
           "Type": "AWS_PROXY",
@@ -555,10 +543,7 @@
                 },
                 ":apigateway:eu-west-2:lambda:path/2015-03-31/functions/",
                 {
-                  "Fn::GetAtt": [
-                    "TemplateAPIGetOpenAPISpec4933EE24",
-                    "Arn"
-                  ]
+                  "Fn::GetAtt": ["TemplateAPIGetOpenAPISpec4933EE24", "Arn"]
                 },
                 "/invocations"
               ]
@@ -607,9 +592,7 @@
           ]
         },
         "EndpointConfiguration": {
-          "Types": [
-            "REGIONAL"
-          ]
+          "Types": ["REGIONAL"]
         },
         "RegionalCertificateArn": {
           "Ref": "ApiDomainCertificate0C6AEA7E"
@@ -656,20 +639,14 @@
               "Action": "lambda:InvokeFunction",
               "Effect": "Allow",
               "Resource": {
-                "Fn::GetAtt": [
-                  "TemplateAPIGetStatus25B03D29",
-                  "Arn"
-                ]
+                "Fn::GetAtt": ["TemplateAPIGetStatus25B03D29", "Arn"]
               }
             },
             {
               "Action": "lambda:InvokeFunction",
               "Effect": "Allow",
               "Resource": {
-                "Fn::GetAtt": [
-                  "TemplateAPIGetOpenAPISpec4933EE24",
-                  "Arn"
-                ]
+                "Fn::GetAtt": ["TemplateAPIGetOpenAPISpec4933EE24", "Arn"]
               }
             }
           ],
@@ -720,28 +697,18 @@
         "PolicyDocument": {
           "Statement": [
             {
-              "Action": [
-                "s3:GetObject*",
-                "s3:GetBucket*",
-                "s3:List*"
-              ],
+              "Action": ["s3:GetObject*", "s3:GetBucket*", "s3:List*"],
               "Effect": "Allow",
               "Resource": [
                 {
-                  "Fn::GetAtt": [
-                    "ServiceDataBucketF7784159",
-                    "Arn"
-                  ]
+                  "Fn::GetAtt": ["ServiceDataBucketF7784159", "Arn"]
                 },
                 {
                   "Fn::Join": [
                     "",
                     [
                       {
-                        "Fn::GetAtt": [
-                          "ServiceDataBucketF7784159",
-                          "Arn"
-                        ]
+                        "Fn::GetAtt": ["ServiceDataBucketF7784159", "Arn"]
                       },
                       "/*"
                     ]
@@ -769,7 +736,7 @@
         },
         "Environment": {
           "Variables": {
-            "STATUS_DEPLOYMENT_TIME": "2026-06-15T20:31:24.030Z",
+            "STATUS_DEPLOYMENT_TIME": "2026-06-22T18:49:51.948Z",
             "STATUS_BUILD_VERSION": "0.1.0",
             "RELEASE_TAG": {
               "Ref": "RELEASETAGDEFAULT"
@@ -782,10 +749,7 @@
         "Handler": "index.handler",
         "MemorySize": 512,
         "Role": {
-          "Fn::GetAtt": [
-            "TemplateAPIGetStatusServiceRole2115891B",
-            "Arn"
-          ]
+          "Fn::GetAtt": ["TemplateAPIGetStatusServiceRole2115891B", "Arn"]
         },
         "Runtime": "nodejs22.x",
         "Timeout": 25
@@ -857,10 +821,7 @@
         "Handler": "index.handler",
         "MemorySize": 512,
         "Role": {
-          "Fn::GetAtt": [
-            "TemplateAPIGetOpenAPISpecServiceRole2905E446",
-            "Arn"
-          ]
+          "Fn::GetAtt": ["TemplateAPIGetOpenAPISpecServiceRole2905E446", "Arn"]
         },
         "Runtime": "nodejs22.x",
         "Timeout": 25
@@ -988,7 +949,8 @@
         "TemplateAPIDeploymentE23C5A28fb37fe54df11047355e9ab3d075c9320",
         "TemplateAPIDeploymentStagev19D1EF21E",
         "TemplateAPICE2A2E42"
-      ]
+      ],
+      "Condition": "HasIdentityAuthorizer"
     },
     "ServiceDataBucketF7784159": {
       "Type": "AWS::S3::Bucket",
@@ -1029,20 +991,14 @@
               },
               "Resource": [
                 {
-                  "Fn::GetAtt": [
-                    "ServiceDataBucketF7784159",
-                    "Arn"
-                  ]
+                  "Fn::GetAtt": ["ServiceDataBucketF7784159", "Arn"]
                 },
                 {
                   "Fn::Join": [
                     "",
                     [
                       {
-                        "Fn::GetAtt": [
-                          "ServiceDataBucketF7784159",
-                          "Arn"
-                        ]
+                        "Fn::GetAtt": ["ServiceDataBucketF7784159", "Arn"]
                       },
                       "/*"
                     ]
@@ -1068,9 +1024,7 @@
           "Ref": "ServiceDataBucketF7784159"
         }
       },
-      "DependsOn": [
-        "ServiceDataBucketPolicy50CB2D57"
-      ],
+      "DependsOn": ["ServiceDataBucketPolicy50CB2D57"],
       "UpdateReplacePolicy": "Delete",
       "DeletionPolicy": "Delete"
     },
@@ -1156,11 +1110,7 @@
               "description": "The message content describing the response"
             }
           },
-          "required": [
-            "statusCode",
-            "type",
-            "message"
-          ]
+          "required": ["statusCode", "type", "message"]
         }
       }
     },
@@ -1232,13 +1182,7 @@
             "Fn::Not": [
               {
                 "Fn::Contains": [
-                  [
-                    "1",
-                    "2",
-                    "3",
-                    "4",
-                    "5"
-                  ],
+                  ["1", "2", "3", "4", "5"],
                   {
                     "Ref": "BootstrapVersion"
                   }

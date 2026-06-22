@@ -113,6 +113,23 @@ describe('REST API', () => {
   })
 
   it('Allows API Gateway to invoke the shared authorizer for this API only', () => {
+    template.hasCondition('HasIdentityAuthorizer', {
+      'Fn::Not': [
+        {
+          'Fn::Equals': [
+            {
+              Ref: 'IdentityAuthorizerArn'
+            },
+            ''
+          ]
+        }
+      ]
+    })
+
+    template.hasResource('AWS::ApiGateway::Authorizer', {
+      Condition: 'HasIdentityAuthorizer'
+    })
+
     template.hasResourceProperties('AWS::Lambda::Permission', {
       Action: 'lambda:InvokeFunction',
       FunctionName: {
@@ -131,6 +148,34 @@ describe('REST API', () => {
             Match.anyValue(),
             '/authorizers/*'
           ]
+        ]
+      }
+    })
+
+    template.hasResource('AWS::Lambda::Permission', {
+      Condition: 'HasIdentityAuthorizer'
+    })
+  })
+
+  it('Falls back to unauthenticated methods when no shared authorizer is supplied', () => {
+    template.hasResourceProperties('AWS::ApiGateway::Method', {
+      OperationName: 'getStatus',
+      AuthorizationType: {
+        'Fn::If': [
+          'HasIdentityAuthorizer',
+          'CUSTOM',
+          'NONE'
+        ]
+      },
+      AuthorizerId: {
+        'Fn::If': [
+          'HasIdentityAuthorizer',
+          {
+            Ref: Match.anyValue()
+          },
+          {
+            Ref: 'AWS::NoValue'
+          }
         ]
       }
     })
