@@ -62,6 +62,9 @@ export class ApiStack extends cdk.Stack {
       type: 'String',
       default: config.identity.authorizerArn
     })
+    const hasIdentityAuthorizer = new cdk.CfnCondition(this, 'HasIdentityAuthorizer', {
+      expression: cdk.Fn.conditionNot(cdk.Fn.conditionEquals(identityAuthorizerArnParameter.valueAsString, ''))
+    })
 
     // Create shared resources
     const sharedResources = new Resources(scope, this, config)
@@ -117,6 +120,7 @@ export class ApiStack extends cdk.Stack {
         resourceName: 'authorizers/*'
       }, this)
     })
+    authorizerInvokePermission.cfnOptions.condition = hasIdentityAuthorizer
     authorizerInvokePermission.node.addDependency(apiGateway.restApi)
 
     // Kick of dependency injection for shared models and model factory
@@ -130,6 +134,7 @@ export class ApiStack extends cdk.Stack {
       })
       .report()
 
+    this.makeAuthorizationOptional(hasIdentityAuthorizer)
     this.disableAuthorizationForOperation('getOpenAPISpec')
     const deployment = apiGateway.restApi.latestDeployment?.node.defaultChild
     if (deployment instanceof CfnDeployment) {
@@ -143,6 +148,21 @@ export class ApiStack extends cdk.Stack {
       value: `https://${vanityDomain}`
     })
     templateApiUrlOutput.node.addDependency(cnameRecord)
+  }
+
+  private makeAuthorizationOptional (hasIdentityAuthorizer: cdk.CfnCondition): void {
+    const visit = (construct: Construct): void => {
+      if (construct instanceof cdk.CfnResource && construct.cfnResourceType === 'AWS::ApiGateway::Authorizer') {
+        construct.cfnOptions.condition = hasIdentityAuthorizer
+      }
+      if (construct instanceof CfnMethod && construct.authorizationType === 'CUSTOM') {
+        const authorizerId = construct.authorizerId
+        construct.addPropertyOverride('AuthorizationType', cdk.Fn.conditionIf(hasIdentityAuthorizer.logicalId, 'CUSTOM', 'NONE'))
+        construct.addPropertyOverride('AuthorizerId', cdk.Fn.conditionIf(hasIdentityAuthorizer.logicalId, authorizerId ?? cdk.Aws.NO_VALUE, cdk.Aws.NO_VALUE))
+      }
+      construct.node.children.forEach(visit)
+    }
+    visit(this)
   }
 
   private disableAuthorizationForOperation (operationName: string): void {
