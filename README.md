@@ -1,5 +1,8 @@
 # Template API
 
+> **Archived October 2026.** This repo did its job as an early template. [template-app](https://github.com/connected-web/template-app) replaces it: one repo with a UI and an API, published and deployed through the cweb platform. Start new apps from template-app.
+
+
 A template for building highly scalable serverless APIs using AWS Lambda, API Gateway, Route53, and ACM.
 
 ## Features
