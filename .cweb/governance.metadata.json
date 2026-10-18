@@ -21,6 +21,7 @@
       "path": "api",
       "type": "api-service",
       "lifecycle": "deployable",
+    "audience": "public",
       "publish": {
         "kind": "cloudformation-stack",
         "buildCommand": "npm --prefix api run cdk:synth",
